@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const calcResponse = await fetch(
-      `${getAppUrlFromRequest(req)}/.netlify/functions/calculate-background`,
+      `${getAppUrlFromRequest(req)}/api/calculate-background`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

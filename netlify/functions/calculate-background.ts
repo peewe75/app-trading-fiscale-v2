@@ -4,6 +4,10 @@ interface NetlifyEvent {
   body: string | null
 }
 
+export const config = {
+  path: '/api/calculate-background',
+}
+
 export const handler = async (event: NetlifyEvent) => {
   let reportId = ''
 
