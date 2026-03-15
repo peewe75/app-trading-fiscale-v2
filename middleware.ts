@@ -5,8 +5,10 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/api/calculate-background',
   '/api/webhooks(.*)',
   '/api/reports/(.*)/complete',
+  '/.netlify/functions/(.*)',
 ])
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
