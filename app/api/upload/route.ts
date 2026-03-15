@@ -84,18 +84,21 @@ export async function POST(req: NextRequest) {
   const htmlContent = await file.text()
 
   try {
-    const calcResponse = await fetch(`${getAppUrlFromRequest(req)}/.netlify/functions/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        html: htmlContent,
-        year,
+    const calcResponse = await fetch(
+      `${getAppUrlFromRequest(req)}/.netlify/functions/calculate-background`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: htmlContent,
+          year,
         reportId: report.id,
         userId: user.id,
-        userName: user.email,
-        userEmail: user.email,
-      }),
-    })
+          userName: user.email,
+          userEmail: user.email,
+        }),
+      }
+    )
 
     if (!calcResponse.ok) {
       throw new Error('Errore nella funzione di calcolo')
