@@ -1,18 +1,14 @@
 import { calculateTax, generateReportPdf, parseHtmlReport } from '../../lib/report-engine'
 
-interface NetlifyEvent {
-  body: string | null
-}
-
 export const config = {
   path: '/api/calculate-background',
 }
 
-export const handler = async (event: NetlifyEvent) => {
+const handler = async (request: Request) => {
   let reportId = ''
 
   try {
-    const body = JSON.parse(event.body ?? '{}') as {
+    const body = (await request.json()) as {
       html?: string
       year?: number
       reportId?: string
@@ -30,11 +26,21 @@ export const handler = async (event: NetlifyEvent) => {
     const taxCode = body.taxCode
 
     if (!htmlContent) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'HTML mancante' }),
-      }
+      return Response.json({ error: 'HTML mancante' }, { status: 400 })
     }
+
+    const blobKey = `reports/${userId}/${reportId}.pdf`
+    const response = Response.json(
+      {
+        success: true,
+        reportId,
+        blobKey,
+        status: 'processing',
+      },
+      { status: 202 }
+    )
+
+    await response.clone().text()
 
     const { trades, balances } = parseHtmlReport(htmlContent)
     const results = calculateTax(trades, balances, year)
@@ -45,8 +51,6 @@ export const handler = async (event: NetlifyEvent) => {
       userName,
       taxCode,
     })
-    const blobKey = `reports/${userId}/${reportId}.pdf`
-
     await uploadPdfToBlobs(blobKey, pdfBytes)
     await notifyCompletion(reportId, {
       blob_key: blobKey,
@@ -55,15 +59,7 @@ export const handler = async (event: NetlifyEvent) => {
       status: 'ready',
     })
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        reportId,
-        blobKey,
-        results,
-      }),
-    }
+    return response
   } catch (error) {
     if (reportId) {
       try {
@@ -73,14 +69,16 @@ export const handler = async (event: NetlifyEvent) => {
       }
     }
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
+    return Response.json(
+      {
         error: error instanceof Error ? error.message : 'Errore sconosciuto',
-      }),
-    }
+      },
+      { status: 500 }
+    )
   }
 }
+
+export default handler
 
 async function uploadPdfToBlobs(blobKey: string, pdfBytes: Buffer) {
   const siteId = process.env.NETLIFY_SITE_ID
