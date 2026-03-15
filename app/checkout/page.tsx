@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { getAppUrlFromHeaders } from '@/lib/app-url'
 import { PLAN_DETAILS } from '@/lib/plans'
 import { createCheckoutSession } from '@/lib/stripe'
 import { cn } from '@/lib/utils'
@@ -29,7 +30,7 @@ export default async function CheckoutPage({
     if (selectedPlan) {
       const priceId = process.env[selectedPlan.priceEnvKey]
       if (priceId) {
-        const url = await createCheckoutSession(userId, priceId, plan)
+        const url = await createCheckoutSession(userId, priceId, plan, await getAppUrlFromHeaders())
         redirect(url)
       }
     }

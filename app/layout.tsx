@@ -23,7 +23,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      afterSignInUrl="/dashboard/upload"
+      afterSignUpUrl="/checkout"
+    >
       <html lang="it">
         <body className={`${manrope.variable} ${newsreader.variable} font-sans`}>
           {children}

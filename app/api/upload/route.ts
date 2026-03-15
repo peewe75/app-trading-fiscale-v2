@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isYearAllowedForPlan, PLAN_DETAILS } from '@/lib/plans'
+import { getAppUrlFromRequest } from '@/lib/app-url'
 import { createSupabaseServiceClient } from '@/lib/supabase'
 import type { Plan } from '@/types'
 
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
   const htmlContent = await file.text()
 
   try {
-    const calcResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/.netlify/functions/calculate`, {
+    const calcResponse = await fetch(`${getAppUrlFromRequest(req)}/.netlify/functions/calculate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

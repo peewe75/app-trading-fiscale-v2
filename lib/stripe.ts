@@ -13,15 +13,16 @@ function getStripe() {
 export async function createCheckoutSession(
   clerkUserId: string,
   priceId: string,
-  plan: string
+  plan: string,
+  appUrl: string
 ): Promise<string> {
   const stripe = getStripe()
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout`,
+    success_url: `${appUrl}/checkout/success`,
+    cancel_url: `${appUrl}/checkout`,
     metadata: {
       clerk_user_id: clerkUserId,
       plan,
