@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 215 20% 65%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-slate-100 text-slate-900 antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), transparent 36%),
+      linear-gradient(180deg, rgba(241, 245, 249, 0.9) 0%, rgba(248, 250, 252, 1) 42%, rgba(226, 232, 240, 0.55) 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display text-balance text-slate-950;
+  }
+
+  p {
+    @apply text-pretty;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200/60;
+  }
+
+  table {
+    @apply w-full border-collapse;
+  }
+
+  th {
+    @apply text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500;
+  }
+
+  td {
+    @apply text-sm text-slate-700;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply min-h-screen px-4 py-6 sm:px-6 lg:px-8;
+  }
+
+  .page-grid {
+    @apply mx-auto flex w-full max-w-7xl flex-col gap-6 lg:flex-row;
+  }
+
+  .page-panel {
+    @apply rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-panel backdrop-blur-xl sm:p-8;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-3 border-b border-slate-200 pb-6;
+  }
+
+  .page-title {
+    @apply text-3xl sm:text-4xl;
+  }
+
+  .page-subtitle {
+    @apply max-w-2xl text-sm leading-7 text-slate-600 sm:text-base;
+  }
+
+  .stat-card {
+    @apply rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  .data-table-wrap {
+    @apply overflow-hidden rounded-[28px] border border-slate-200 bg-white;
+  }
+
+  .data-table {
+    @apply min-w-full divide-y divide-slate-200;
+  }
+
+  .data-table thead {
+    @apply bg-slate-50;
+  }
+
+  .data-table th,
+  .data-table td {
+    @apply px-5 py-4 align-top;
+  }
+
+  .data-table tbody tr {
+    @apply border-t border-slate-100;
+  }
+
+  .auth-shell {
+    @apply flex min-h-screen items-center justify-center px-4 py-10;
+  }
+
+  .auth-card {
+    @apply w-full max-w-5xl overflow-hidden rounded-[36px] border border-white/80 bg-white/90 shadow-panel backdrop-blur-xl lg:grid lg:grid-cols-[1.1fr_0.9fr];
+  }
+
+  .auth-aside {
+    @apply hidden bg-slate-950 p-10 text-slate-100 lg:flex lg:flex-col;
+  }
+
+  .auth-content {
+    @apply flex items-center justify-center p-6 sm:p-10;
+  }
+}

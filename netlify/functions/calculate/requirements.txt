@@ -1,0 +1,3 @@
+# Dipendenze Python per la Netlify Function
+# reportlab o weasyprint per generazione PDF (scegli uno)
+reportlab==4.2.5

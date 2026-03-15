@@ -1,0 +1,221 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { cn, formatCurrency } from '@/lib/utils'
+import type { Plan } from '@/types'
+
+type UploadClientProps = {
+  allowedYears: number[]
+  plan: Plan
+}
+
+type ReportStatusResponse = {
+  status: 'processing' | 'ready' | 'error'
+  net_profit: number | null
+  tax_due: number | null
+}
+
+export function UploadClient({ allowedYears, plan }: UploadClientProps) {
+  const [file, setFile] = useState<File | null>(null)
+  const [year, setYear] = useState(allowedYears[0] ?? new Date().getFullYear())
+  const [loading, setLoading] = useState(false)
+  const [reportId, setReportId] = useState<string | null>(null)
+  const [progress, setProgress] = useState(8)
+  const [status, setStatus] = useState<ReportStatusResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  const processing = loading || (!!reportId && status?.status !== 'ready' && status?.status !== 'error')
+
+  useEffect(() => {
+    if (!processing) return
+
+    const timer = window.setInterval(() => {
+      setProgress(current => Math.min(current + 7, 92))
+    }, 1200)
+
+    return () => window.clearInterval(timer)
+  }, [processing])
+
+  useEffect(() => {
+    if (!reportId) return
+
+    let active = true
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/reports/${reportId}/status`, { cache: 'no-store' })
+        const data = (await response.json()) as ReportStatusResponse & { error?: string }
+
+        if (!response.ok) {
+          throw new Error(data.error ?? 'Errore nel recupero dello stato')
+        }
+
+        if (!active) return
+        setStatus(data)
+
+        if (data.status === 'ready') {
+          setProgress(100)
+          setLoading(false)
+          window.setTimeout(() => {
+            router.push(`/dashboard/reports?new=${reportId}`)
+          }, 800)
+          return
+        }
+
+        if (data.status === 'error') {
+          setLoading(false)
+          setError('Elaborazione non completata. Verifica il file e riprova.')
+          return
+        }
+
+        window.setTimeout(poll, 3000)
+      } catch (pollError) {
+        if (!active) return
+        setLoading(false)
+        setError(pollError instanceof Error ? pollError.message : 'Errore durante il polling del report')
+      }
+    }
+
+    void poll()
+
+    return () => {
+      active = false
+    }
+  }, [reportId, router])
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!file) return
+
+    setError(null)
+    setStatus(null)
+    setReportId(null)
+    setProgress(10)
+    setLoading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('year', String(year))
+
+      const response = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = (await response.json()) as { reportId?: string; error?: string }
+
+      if (!response.ok || !data.reportId) {
+        throw new Error(data.error ?? 'Errore durante l elaborazione del file')
+      }
+
+      setProgress(25)
+      setReportId(data.reportId)
+    } catch (submitError) {
+      setLoading(false)
+      setError(submitError instanceof Error ? submitError.message : 'Errore sconosciuto')
+    }
+  }
+
+  const helperText = useMemo(() => {
+    if (!status || status.status === 'processing') {
+      return 'La funzione fiscale puo richiedere fino a 30 secondi. Mantieni aperta questa pagina.'
+    }
+
+    if (status.status === 'ready') {
+      return `Report pronto. Netto ${formatCurrency(status.net_profit)} - imposta ${formatCurrency(status.tax_due)}`
+    }
+
+    return 'Il report e terminato con errore.'
+  }, [status])
+
+  return (
+    <div className="page-panel">
+      <div className="page-header">
+        <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Upload fiscale</span>
+        <h1 className="page-title">Carica il report HTML del broker</h1>
+        <p className="page-subtitle">
+          Supporto per report MetaTrader 4 e 5. Piano attivo: <span className="font-semibold text-slate-900">{plan}</span>.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+        <div className="space-y-5 rounded-[28px] border border-slate-200 bg-slate-50 p-6">
+          <div className="space-y-2">
+            <label htmlFor="year" className="text-sm font-semibold text-slate-900">
+              Anno fiscale
+            </label>
+            <select id="year" value={year} onChange={event => setYear(Number(event.target.value))}>
+              {allowedYears.map(option => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <p className="text-sm text-slate-500">Base e Standard consentono solo anno corrente e precedente.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="file" className="text-sm font-semibold text-slate-900">
+              File report broker
+            </label>
+            <input
+              id="file"
+              type="file"
+              accept=".htm,.html"
+              onChange={event => setFile(event.target.files?.[0] ?? null)}
+              required
+            />
+            <p className="text-sm text-slate-500">Formati ammessi: `.htm` e `.html` esportati dal broker.</p>
+          </div>
+
+          {error ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+          ) : null}
+
+          <Button type="submit" disabled={!file || loading} className="w-full sm:w-auto">
+            {loading ? 'Invio in corso...' : 'Elabora e genera PDF'}
+          </Button>
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Stato elaborazione</p>
+              <p className="mt-2 text-2xl font-display text-slate-950">
+                {status?.status === 'ready' ? 'Completato' : status?.status === 'error' ? 'Interrotto' : 'In esecuzione'}
+              </p>
+            </div>
+            <div
+              className={cn(
+                'flex h-14 w-14 items-center justify-center rounded-full border text-sm font-semibold',
+                processing ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              )}
+            >
+              {progress}%
+            </div>
+          </div>
+
+          <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-slate-900 transition-all duration-700"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <p className="mt-4 text-sm leading-7 text-slate-600">{helperText}</p>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Netto fiscale</p>
+              <p className="mt-3 text-xl font-semibold text-slate-950">{formatCurrency(status?.net_profit ?? null)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Imposta 26%</p>
+              <p className="mt-3 text-xl font-semibold text-slate-950">{formatCurrency(status?.tax_due ?? null)}</p>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}

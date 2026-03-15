@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Python function per il motore di calcolo fiscale
+[functions]
+  directory = "netlify/functions"
+
+[[functions]]
+  [functions.environment]
+  PYTHON_VERSION = "3.11"
