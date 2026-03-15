@@ -2,13 +2,13 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { UploadClient } from '@/components/upload/upload-client'
 import { getAllowedYears } from '@/lib/plans'
-import { createSupabaseServiceClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase'
 
 export default async function UploadPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const supabase = createSupabaseServiceClient()
+  const supabase = await createSupabaseServerClient()
   const { data: user } = await supabase
     .from('users')
     .select('plan')

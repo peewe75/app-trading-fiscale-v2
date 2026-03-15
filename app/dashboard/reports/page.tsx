@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { auth } from '@clerk/nextjs/server'
 import { ReportsTableClient } from '@/components/reports/reports-table-client'
 import { buttonVariants } from '@/components/ui/button'
-import { createSupabaseServiceClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase'
 import type { Report } from '@/types'
 
 export default async function ReportsPage({
@@ -11,7 +11,7 @@ export default async function ReportsPage({
   searchParams: Promise<{ new?: string }>
 }) {
   const { userId } = await auth()
-  const supabase = createSupabaseServiceClient()
+  const supabase = await createSupabaseServerClient()
   const { new: highlightId } = await searchParams
 
   const { data: user } = await supabase.from('users').select('id').eq('clerk_id', userId).single()

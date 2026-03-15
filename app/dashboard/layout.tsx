@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/sidebar'
-import { createSupabaseServiceClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +9,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const supabase = createSupabaseServiceClient()
+  const supabase = await createSupabaseServerClient()
   const { data: user } = await supabase
     .from('users')
     .select('plan')

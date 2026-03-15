@@ -1,9 +1,9 @@
-import { createSupabaseServiceClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import type { NewsItem } from '@/types'
 
 export default async function NewsPage() {
-  const supabase = createSupabaseServiceClient()
+  const supabase = await createSupabaseServerClient()
 
   const { data: news } = await supabase
     .from('news')

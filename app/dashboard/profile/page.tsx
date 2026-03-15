@@ -1,13 +1,13 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { ClerkProfileCard } from '@/components/profile/clerk-profile-card'
 import { PlanBadge } from '@/components/plan-badge'
-import { createSupabaseServiceClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Payment } from '@/types'
 
 export default async function ProfilePage() {
   const [{ userId }, clerkUser] = await Promise.all([auth(), currentUser()])
-  const supabase = createSupabaseServiceClient()
+  const supabase = await createSupabaseServerClient()
 
   const { data: user } = await supabase
     .from('users')
