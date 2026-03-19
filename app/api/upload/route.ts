@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isYearAllowedForPlan, PLAN_DETAILS } from '@/lib/plans'
 import { getAppUrlFromRequest } from '@/lib/app-url'
+import { buildUploadBlobKey, saveTextBlob } from '@/lib/blobs'
 import { createSupabaseServiceClient } from '@/lib/supabase'
 import { getCurrentUserRecord } from '@/lib/user-record'
 import type { Plan } from '@/types'
@@ -79,18 +80,21 @@ export async function POST(req: NextRequest) {
   }
 
   const htmlContent = await file.text()
+  const htmlBlobKey = buildUploadBlobKey(user.id, report.id)
 
   try {
+    await saveTextBlob(htmlBlobKey, htmlContent, 'text/html; charset=utf-8')
+
     const calcResponse = await fetch(
       `${getAppUrlFromRequest(req)}/api/calculate-background`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          html: htmlContent,
           year,
-        reportId: report.id,
-        userId: user.id,
+          reportId: report.id,
+          userId: user.id,
+          htmlBlobKey,
           userName: user.email,
           userEmail: user.email,
         }),
@@ -98,7 +102,8 @@ export async function POST(req: NextRequest) {
     )
 
     if (!calcResponse.ok) {
-      throw new Error('Errore nella funzione di calcolo')
+      const responseText = await calcResponse.text()
+      throw new Error(responseText || 'Errore nella funzione di calcolo')
     }
   } catch {
     await supabase.from('reports').update({ status: 'error' }).eq('id', report.id)

@@ -1,4 +1,5 @@
 import { calculateTax, generateReportPdf, parseHtmlReport } from '../../lib/report-engine'
+import { getTextBlob } from '../../lib/blobs'
 
 export const config = {
   path: '/api/calculate-background',
@@ -10,6 +11,7 @@ const handler = async (request: Request) => {
   try {
     const body = (await request.json()) as {
       html?: string
+      htmlBlobKey?: string
       year?: number
       reportId?: string
       userId?: string
@@ -18,7 +20,9 @@ const handler = async (request: Request) => {
       taxCode?: string
     }
 
-    const htmlContent = body.html ?? ''
+    const htmlContent = body.htmlBlobKey
+      ? await getTextBlob(body.htmlBlobKey)
+      : body.html ?? ''
     const year = Number(body.year ?? new Date().getUTCFullYear() - 1)
     reportId = body.reportId ?? ''
     const userId = body.userId ?? ''

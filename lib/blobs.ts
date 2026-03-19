@@ -17,11 +17,30 @@ export async function saveBlob(key: string, data: Uint8Array | ArrayBuffer): Pro
   await store.set(key, payload, { metadata: { contentType: 'application/pdf' } })
 }
 
+export async function saveTextBlob(
+  key: string,
+  content: string,
+  contentType = 'text/plain; charset=utf-8'
+): Promise<void> {
+  const store = getReportsStore()
+  const payload = new Blob([content], { type: contentType })
+  await store.set(key, payload, { metadata: { contentType } })
+}
+
 // Recupera un PDF da Netlify Blobs
 export async function getBlob(key: string): Promise<ArrayBuffer | null> {
   try {
     const store = getReportsStore()
     return await store.get(key, { type: 'arrayBuffer' })
+  } catch {
+    return null
+  }
+}
+
+export async function getTextBlob(key: string): Promise<string | null> {
+  try {
+    const store = getReportsStore()
+    return await store.get(key, { type: 'text' })
   } catch {
     return null
   }
@@ -36,4 +55,8 @@ export async function deleteBlob(key: string): Promise<void> {
 // Costruisce la chiave blob standard per un report
 export function buildBlobKey(userId: string, reportId: string): string {
   return `reports/${userId}/${reportId}.pdf`
+}
+
+export function buildUploadBlobKey(userId: string, reportId: string): string {
+  return `sources/${userId}/${reportId}.html`
 }

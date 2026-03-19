@@ -17,6 +17,61 @@ type ReportStatusResponse = {
   tax_due: number | null
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function compactBrokerHtml(source: string) {
+  const parser = new DOMParser()
+  const document = parser.parseFromString(source, 'text/html')
+  const rows = Array.from(document.querySelectorAll('tr'))
+
+  if (!rows.length) {
+    return source
+  }
+
+  const compactRows = rows
+    .map(row => {
+      const cells = Array.from(row.querySelectorAll('th, td'))
+        .map(cell => {
+          const tag = cell.tagName.toLowerCase() === 'th' ? 'th' : 'td'
+          const colspan = Number(cell.getAttribute('colspan') ?? '1')
+          const safeColspan = Number.isFinite(colspan) && colspan > 1 ? ` colspan="${colspan}"` : ''
+          const text = escapeHtml(cell.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+          return `<${tag}${safeColspan}>${text}</${tag}>`
+        })
+        .join('')
+
+      return cells ? `<tr>${cells}</tr>` : ''
+    })
+    .join('')
+
+  return `<html><body><table>${compactRows}</table></body></html>`
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T & { error?: string }> {
+  const text = await response.text()
+
+  if (!text) {
+    return {} as T & { error?: string }
+  }
+
+  try {
+    return JSON.parse(text) as T & { error?: string }
+  } catch {
+    return {
+      error: text.startsWith('Internal Error')
+        ? 'Il file e troppo pesante per l elaborazione diretta. Riprova con il nuovo upload compattato o con un export HTML piu leggero.'
+        : text,
+    } as T & { error?: string }
+  }
+}
+
 export function UploadClient({ allowedYears, plan }: UploadClientProps) {
   const [file, setFile] = useState<File | null>(null)
   const [year, setYear] = useState(allowedYears[0] ?? new Date().getFullYear())
@@ -97,12 +152,15 @@ export function UploadClient({ allowedYears, plan }: UploadClientProps) {
     setLoading(true)
 
     try {
+      const sourceHtml = await file.text()
+      const compactHtml = compactBrokerHtml(sourceHtml)
+      const uploadFile = new File([compactHtml], file.name, { type: 'text/html' })
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('year', String(year))
 
       const response = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = (await response.json()) as { reportId?: string; error?: string }
+      const data = await readJsonResponse<{ reportId?: string }>(response)
 
       if (!response.ok || !data.reportId) {
         throw new Error(data.error ?? 'Errore durante l elaborazione del file')
