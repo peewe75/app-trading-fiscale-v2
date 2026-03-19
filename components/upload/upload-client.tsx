@@ -17,16 +17,14 @@ type ReportStatusResponse = {
   tax_due: number | null
 }
 
-function escapeHtml(value: string) {
+function normalizeCellText(value: string) {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replaceAll('\t', ' ')
 }
 
-function compactBrokerHtml(source: string) {
+function normalizeBrokerReport(source: string) {
   const parser = new DOMParser()
   const document = parser.parseFromString(source, 'text/html')
   const rows = Array.from(document.querySelectorAll('tr'))
@@ -35,23 +33,27 @@ function compactBrokerHtml(source: string) {
     return source
   }
 
-  const compactRows = rows
+  const normalizedRows = rows
     .map(row => {
-      const cells = Array.from(row.querySelectorAll('th, td'))
-        .map(cell => {
-          const tag = cell.tagName.toLowerCase() === 'th' ? 'th' : 'td'
-          const colspan = Number(cell.getAttribute('colspan') ?? '1')
-          const safeColspan = Number.isFinite(colspan) && colspan > 1 ? ` colspan="${colspan}"` : ''
-          const text = escapeHtml(cell.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-          return `<${tag}${safeColspan}>${text}</${tag}>`
-        })
-        .join('')
+      const cells: string[] = []
 
-      return cells ? `<tr>${cells}</tr>` : ''
+      Array.from(row.querySelectorAll('th, td')).forEach(cell => {
+          const colspan = Number(cell.getAttribute('colspan') ?? '1')
+          const text = normalizeCellText(cell.textContent ?? '')
+          const safeColspan = Number.isFinite(colspan) && colspan > 0 ? colspan : 1
+
+          cells.push(text)
+
+          for (let index = 1; index < safeColspan; index += 1) {
+            cells.push('')
+          }
+        })
+
+      return cells.join('\t')
     })
     .join('')
 
-  return `<html><body><table>${compactRows}</table></body></html>`
+  return `ATF_TSV_V1\n${normalizedRows}`
 }
 
 async function readJsonResponse<T>(response: Response): Promise<T & { error?: string }> {
@@ -153,8 +155,8 @@ export function UploadClient({ allowedYears, plan }: UploadClientProps) {
 
     try {
       const sourceHtml = await file.text()
-      const compactHtml = compactBrokerHtml(sourceHtml)
-      const uploadFile = new File([compactHtml], file.name, { type: 'text/html' })
+      const normalizedReport = normalizeBrokerReport(sourceHtml)
+      const uploadFile = new File([normalizedReport], file.name, { type: 'text/plain' })
       const formData = new FormData()
       formData.append('file', uploadFile)
       formData.append('year', String(year))

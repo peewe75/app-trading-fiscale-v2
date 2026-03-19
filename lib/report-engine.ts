@@ -66,8 +66,13 @@ const HEADER_BG = '#e2e8f0'
 const ALT_ROW_BG = '#f8fafc'
 const TEXT_DARK = '#0f172a'
 const TEXT_MUTED = '#475569'
+const NORMALIZED_REPORT_PREFIX = 'ATF_TSV_V1\n'
 
 export function parseHtmlReport(htmlContent: string) {
+  if (htmlContent.startsWith(NORMALIZED_REPORT_PREFIX)) {
+    return parseNormalizedReport(htmlContent)
+  }
+
   const sanitized = htmlContent.replace(/\0/g, '')
   const $ = load(sanitized)
   const rows: string[][] = []
@@ -92,6 +97,62 @@ export function parseHtmlReport(htmlContent: string) {
       rows.push(currentRow)
     }
   })
+
+  const headerIndex = rows.findIndex(
+    (row) => row.some((cell) => cell.includes('Ticket')) && row.some((cell) => cell.includes('Profit'))
+  )
+
+  if (headerIndex === -1) {
+    return { trades: [] as ParsedTrade[], balances: [] as ParsedBalance[] }
+  }
+
+  const trades: ParsedTrade[] = []
+  const balances: ParsedBalance[] = []
+
+  for (const row of rows.slice(headerIndex + 1)) {
+    if (row.length < 4) continue
+
+    const rowType = (row[2] ?? '').trim().toLowerCase()
+
+    if (rowType === 'balance') {
+      const description = row
+        .slice(3, Math.min(13, row.length))
+        .map((cell) => cell.trim())
+        .filter(Boolean)
+        .join(' ')
+
+      balances.push({
+        description,
+        amount: parseNumber(row.at(-1) ?? ''),
+        date: parseDate(row[1] ?? ''),
+      })
+      continue
+    }
+
+    if (rowType !== 'buy' && rowType !== 'sell') continue
+
+    trades.push({
+      symbol: row[4] ?? '',
+      type: rowType,
+      size: parseNumber(row[3] ?? ''),
+      openPrice: parseNumber(row[5] ?? ''),
+      closePrice: parseNumber(row[9] ?? ''),
+      closeDate: parseDate(row[8] ?? ''),
+      commission: parseNumber(row[10] ?? ''),
+      swap: parseNumber(row[12] ?? ''),
+      profit: parseNumber(row[13] ?? ''),
+    })
+  }
+
+  return { trades, balances }
+}
+
+function parseNormalizedReport(content: string) {
+  const rows = content
+    .slice(NORMALIZED_REPORT_PREFIX.length)
+    .split('\n')
+    .map(line => line.split('\t').map(cell => cell.trim()))
+    .filter(row => row.some(cell => cell.length > 0))
 
   const headerIndex = rows.findIndex(
     (row) => row.some((cell) => cell.includes('Ticket')) && row.some((cell) => cell.includes('Profit'))
