@@ -35,14 +35,21 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let reportId = ''
+  let stage = 'init'
+
   try {
+    stage = 'resolve-params'
     const { id } = await params
+    reportId = id
+    stage = 'authorize-report'
     const report = await getAuthorizedReportForCurrentUser(id)
 
     if (report.status !== 'ready') {
       return NextResponse.json({ error: 'Il report deve essere pronto prima di generare RW/RT.' }, { status: 400 })
     }
 
+    stage = 'load-context'
     const draftKey = buildTaxFormDraftKey(report.user_id, report.id)
     const [taxContext, user, rawRecord] = await Promise.all([
       loadReportTaxContext(report),
@@ -78,19 +85,20 @@ export async function POST(
       return NextResponse.json(payload, { status: 400 })
     }
 
-    const [controlPdf, facsimilePdf] = await Promise.all([
-      generateTaxFormPdf({ preview: basePreview, kind: 'control' }),
-      generateTaxFormPdf({ preview: basePreview, kind: 'facsimile' }),
-    ])
+    stage = 'generate-control-pdf'
+    const controlPdf = await generateTaxFormPdf({ preview: basePreview, kind: 'control' })
+    stage = 'generate-facsimile-pdf'
+    const facsimilePdf = await generateTaxFormPdf({ preview: basePreview, kind: 'facsimile' })
 
     const controlPdfBlobKey = buildTaxFormControlPdfKey(report.user_id, report.id)
     const facsimilePdfBlobKey = buildTaxFormFacsimilePdfKey(report.user_id, report.id)
-    await Promise.all([
-      saveBlob(controlPdfBlobKey, controlPdf),
-      saveBlob(facsimilePdfBlobKey, facsimilePdf),
-    ])
+    stage = 'upload-control-pdf'
+    await saveBlob(controlPdfBlobKey, controlPdf)
+    stage = 'upload-facsimile-pdf'
+    await saveBlob(facsimilePdfBlobKey, facsimilePdf)
 
     const generatedAt = new Date().toISOString()
+    stage = 'refresh-preview'
     const preview = createTaxFormPreview({
       report: basePreview.report,
       sourceHtml: taxContext.sourceHtml,
@@ -108,6 +116,7 @@ export async function POST(
       facsimilePdfBlobKey: facsimilePdfBlobKey,
     })
 
+    stage = 'save-preview-record'
     await saveTextBlob(draftKey, JSON.stringify(record, null, 2), 'application/json; charset=utf-8')
 
     const payload: TaxFormPayload = {
@@ -119,10 +128,20 @@ export async function POST(
 
     return NextResponse.json(payload)
   } catch (error) {
+    console.error('tax-form generate failed', {
+      reportId,
+      stage,
+      message: error instanceof Error ? error.message : 'Errore sconosciuto',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+
     if (error instanceof ReportAccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
-    return NextResponse.json({ error: 'Errore interno nella generazione del facsimile.' }, { status: 500 })
+    return NextResponse.json(
+      { error: `Errore interno nella generazione del facsimile (${stage}).` },
+      { status: 500 }
+    )
   }
 }
