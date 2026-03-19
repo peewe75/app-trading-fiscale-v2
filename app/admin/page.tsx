@@ -1,5 +1,6 @@
 import { PlanBadge } from '@/components/plan-badge'
 import { createSupabaseServiceClient } from '@/lib/supabase'
+import { isTestBypassPayment } from '@/lib/test-plan-bypass'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 function getRelatedEmail(relation: { email?: string }[] | { email?: string } | null | undefined) {
@@ -12,7 +13,7 @@ export default async function AdminDashboardPage() {
   const [usersResult, reportsResult, paymentsResult, latestReportsResult, latestPaymentsResult] = await Promise.all([
     supabase.from('users').select('plan'),
     supabase.from('reports').select('id'),
-    supabase.from('payments').select('amount_cents, status'),
+    supabase.from('payments').select('amount_cents, status, stripe_session_id, stripe_payment_intent_id'),
     supabase
       .from('reports')
       .select('id, filename, year, status, created_at, users(email)')
@@ -20,7 +21,7 @@ export default async function AdminDashboardPage() {
       .limit(5),
     supabase
       .from('payments')
-      .select('id, plan, amount_cents, status, created_at, users(email)')
+      .select('id, plan, amount_cents, status, created_at, stripe_session_id, stripe_payment_intent_id, users(email)')
       .order('created_at', { ascending: false })
       .limit(5),
   ])
@@ -32,7 +33,7 @@ export default async function AdminDashboardPage() {
   const latestPayments = latestPaymentsResult.data ?? []
 
   const revenueCents = payments
-    .filter(payment => payment.status === 'succeeded')
+    .filter(payment => payment.status === 'succeeded' && !isTestBypassPayment(payment))
     .reduce((total, payment) => total + payment.amount_cents, 0)
 
   const breakdown = {
@@ -110,7 +111,9 @@ export default async function AdminDashboardPage() {
             {latestPayments.map(payment => (
               <div key={payment.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
                 <p className="text-sm font-semibold text-slate-900">{getRelatedEmail(payment.users)}</p>
-                <p className="mt-1 text-sm text-slate-500">{payment.plan} - {payment.status}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {payment.plan} - {isTestBypassPayment(payment) ? 'pagamento test' : payment.status}
+                </p>
                 <p className="mt-3 text-sm text-slate-600">
                   {formatCurrency(payment.amount_cents / 100)} - {formatDate(payment.created_at)}
                 </p>

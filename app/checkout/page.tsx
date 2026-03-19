@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { TestPlanBypassCard } from '@/components/checkout/test-plan-bypass-card'
 import { buttonVariants } from '@/components/ui/button'
 import { getAppUrlFromHeaders } from '@/lib/app-url'
 import { PLAN_DETAILS } from '@/lib/plans'
 import { createCheckoutSession } from '@/lib/stripe'
+import { isTestPlanBypassEnabled } from '@/lib/test-plan-bypass'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -24,6 +26,7 @@ export default async function CheckoutPage({
   if (!userId) redirect('/sign-in')
 
   const { plan } = await searchParams
+  const testBypassEnabled = isTestPlanBypassEnabled()
 
   if (plan) {
     const selectedPlan = PLANS.find(item => item.id === plan)
@@ -45,6 +48,8 @@ export default async function CheckoutPage({
             <h1 className="page-title">Seleziona il piano operativo</h1>
             <p className="page-subtitle">Pagamento una tantum con Stripe. Nessun rinnovo automatico.</p>
           </div>
+
+          {testBypassEnabled ? <TestPlanBypassCard /> : null}
 
           <div className="mt-8 grid gap-6 lg:grid-cols-3">
             {PLANS.map(plan => {
@@ -80,7 +85,8 @@ export default async function CheckoutPage({
                     className={cn(
                       buttonVariants(plan.id === 'standard' ? 'secondary' : 'primary'),
                       'mt-8 w-full',
-                      plan.id === 'standard' && 'border-slate-700 bg-slate-900 text-white hover:bg-slate-800'
+                      plan.id === 'standard' && 'border-slate-700 bg-slate-900 text-white hover:bg-slate-800',
+                      testBypassEnabled && plan.id !== 'standard' && 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100'
                     )}
                   >
                     Acquista {detail.name}

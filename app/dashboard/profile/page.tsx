@@ -2,6 +2,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { ClerkProfileCard } from '@/components/profile/clerk-profile-card'
 import { PlanBadge } from '@/components/plan-badge'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { isTestBypassPayment } from '@/lib/test-plan-bypass'
 import { getCurrentUserRecord } from '@/lib/user-record'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Payment } from '@/types'
@@ -70,7 +71,16 @@ export default async function ProfilePage() {
                       <td>{formatDate(payment.created_at)}</td>
                       <td className="capitalize">{payment.plan}</td>
                       <td>{formatCurrency(payment.amount_cents / 100)}</td>
-                      <td className="capitalize">{payment.status}</td>
+                      <td>
+                        {isTestBypassPayment(payment) ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-semibold text-emerald-700">Pagamento test</span>
+                            <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{payment.status}</span>
+                          </div>
+                        ) : (
+                          <span className="capitalize">{payment.status}</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 ) : (
