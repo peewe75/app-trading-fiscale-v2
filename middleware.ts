@@ -11,19 +11,10 @@ const isPublicRoute = createRouteMatcher([
   '/.netlify/functions/(.*)',
 ])
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)'])
-
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return NextResponse.next()
 
-  const { sessionClaims } = await auth.protect()
-
-  if (isAdminRoute(req)) {
-    const role = (sessionClaims?.metadata as Record<string, string>)?.role
-    if (role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard/upload', req.url))
-    }
-  }
+  await auth.protect()
 
   return NextResponse.next()
 })
