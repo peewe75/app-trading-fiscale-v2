@@ -1,5 +1,5 @@
 import { calculateTax, generateReportPdf, parseHtmlReport } from '../../lib/report-engine'
-import { getTextBlob } from '../../lib/blobs'
+import { getTextBlob, saveBlob } from '../../lib/blobs'
 
 export const config = {
   path: '/api/calculate-background',
@@ -7,8 +7,11 @@ export const config = {
 
 const handler = async (request: Request) => {
   let reportId = ''
+  let stage = 'init'
+  const requestOrigin = new URL(request.url).origin
 
   try {
+    stage = 'read-body'
     const body = (await request.json()) as {
       html?: string
       htmlBlobKey?: string
@@ -20,6 +23,7 @@ const handler = async (request: Request) => {
       taxCode?: string
     }
 
+    stage = 'load-source'
     const htmlContent = body.htmlBlobKey
       ? await getTextBlob(body.htmlBlobKey)
       : body.html ?? ''
@@ -46,8 +50,11 @@ const handler = async (request: Request) => {
 
     await response.clone().text()
 
+    stage = 'parse-report'
     const { trades, balances } = parseHtmlReport(htmlContent)
+    stage = 'calculate-tax'
     const results = calculateTax(trades, balances, year)
+    stage = 'generate-pdf'
     const pdfBytes = await generateReportPdf({
       results,
       trades,
@@ -55,25 +62,28 @@ const handler = async (request: Request) => {
       userName,
       taxCode,
     })
-    await uploadPdfToBlobs(blobKey, pdfBytes)
+    stage = 'upload-pdf'
+    await saveBlob(blobKey, pdfBytes)
+    stage = 'notify-ready'
     await notifyCompletion(reportId, {
       blob_key: blobKey,
       net_profit: results.netProfit,
       tax_due: results.taxDue,
       status: 'ready',
-    })
+    }, requestOrigin)
 
     return response
   } catch (error) {
     console.error('calculate-background failed', {
       reportId,
+      stage,
       message: error instanceof Error ? error.message : 'Errore sconosciuto',
       stack: error instanceof Error ? error.stack : undefined,
     })
 
     if (reportId) {
       try {
-        await notifyCompletion(reportId, { status: 'error' })
+        await notifyCompletion(reportId, { status: 'error' }, requestOrigin)
       } catch {
         // Evita di perdere l errore originario se anche il callback di fallback fallisce.
       }
@@ -90,33 +100,6 @@ const handler = async (request: Request) => {
 
 export default handler
 
-async function uploadPdfToBlobs(blobKey: string, pdfBytes: Buffer) {
-  const siteId = process.env.NETLIFY_SITE_ID
-  const authToken = process.env.NETLIFY_AUTH_TOKEN
-  const storeName = 'reports'
-
-  if (!siteId || !authToken) {
-    throw new Error('NETLIFY_SITE_ID o NETLIFY_AUTH_TOKEN mancanti')
-  }
-
-  const encodedKey = encodeURIComponent(blobKey)
-  const response = await fetch(
-    `https://api.netlify.com/api/v1/blobs/${siteId}/${storeName}/${encodedKey}`,
-    {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/pdf',
-      },
-      body: new Uint8Array(pdfBytes),
-    }
-  )
-
-  if (!response.ok) {
-    throw new Error(`Upload PDF su Netlify Blobs fallito (${response.status})`)
-  }
-}
-
 async function notifyCompletion(
   reportId: string,
   payload: {
@@ -124,13 +107,14 @@ async function notifyCompletion(
     net_profit?: number
     tax_due?: number
     status: 'ready' | 'error' | 'processing'
-  }
+  },
+  requestOrigin?: string
 ) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  const appUrl = resolveAppUrl(requestOrigin)
   const secret = process.env.INTERNAL_CALLBACK_SECRET
 
   if (!appUrl || !secret) {
-    throw new Error('NEXT_PUBLIC_APP_URL o INTERNAL_CALLBACK_SECRET mancanti')
+    throw new Error('URL applicazione o INTERNAL_CALLBACK_SECRET mancanti')
   }
 
   const response = await fetch(`${appUrl}/api/reports/${encodeURIComponent(reportId)}/complete`, {
@@ -145,4 +129,26 @@ async function notifyCompletion(
   if (!response.ok) {
     throw new Error(`Callback interno report non riuscito (${response.status})`)
   }
+}
+
+function resolveAppUrl(requestOrigin?: string) {
+  const candidates = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.URL,
+    process.env.DEPLOY_PRIME_URL,
+    process.env.SITE_URL,
+    requestOrigin,
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+
+    try {
+      return new URL(candidate).origin
+    } catch {
+      // Ignora valori non validi e continua con il prossimo fallback.
+    }
+  }
+
+  return null
 }
