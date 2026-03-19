@@ -66,9 +66,19 @@ export function ReportsTableClient({ reports, scope, highlightId }: ReportsTable
                 </td>
                 <td>
                   {report.status === 'ready' ? (
-                    <Link href={`/api/reports/${report.id}/download`} className={cn(buttonVariants('secondary'), 'px-4 py-2')}>
-                      Scarica PDF
-                    </Link>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={`/api/reports/${report.id}/download`} className={cn(buttonVariants('secondary'), 'px-4 py-2')}>
+                        Scarica PDF
+                      </Link>
+                      {scope === 'user' ? (
+                        <Link
+                          href={`/dashboard/reports/${report.id}/tax-form`}
+                          className={cn(buttonVariants('primary'), 'px-4 py-2')}
+                        >
+                          Facsimile RW/RT
+                        </Link>
+                      ) : null}
+                    </div>
                   ) : (
                     <span className="text-sm text-slate-400">In attesa</span>
                   )}

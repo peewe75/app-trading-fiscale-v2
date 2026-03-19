@@ -41,3 +41,43 @@ export interface NewsItem {
   published_at: string
   created_at: string
 }
+
+export interface TaxFormDraftInput {
+  taxCode: string
+  brokerName: string
+  brokerCountryCode: string
+  rwOwnerCode: string
+  rwAssetCode: string
+  rwPossessionDays: number | null
+  rwInitialValueEur: number | null
+  rwFinalValueEur: number | null
+  rwMaxValueEur: number | null
+  rwIvafeOverrideEur: number | null
+  rtPriorLossesEur: number | null
+  notes: string
+}
+
+export interface TaxFormComputedSummary {
+  year: number
+  corrispettivo: number
+  costo: number
+  rt23TotalCorrispettivi: number
+  rt24TotalCosti: number
+  rt25Plusvalenze: number
+  rt26MinusvalenzeCompensate: number
+  rt27ImponibileNetto: number
+  rtTaxDue: number
+  rwInitialValueEur: number
+  rwFinalValueEur: number
+  rwMaxValueEur: number
+  rwPossessionDays: number
+  rwIvafeDueEur: number
+}
+
+export interface TaxFormDraftRecord {
+  reportId: string
+  input: TaxFormDraftInput
+  summary: TaxFormComputedSummary
+  savedAt: string
+  generatedPdfBlobKey: string | null
+}

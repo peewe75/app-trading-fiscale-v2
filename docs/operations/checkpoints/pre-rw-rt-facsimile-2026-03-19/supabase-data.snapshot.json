@@ -1,0 +1,198 @@
+{
+  "captured_at_utc": "2026-03-19T14:04:26.9296947Z",
+  "project_ref": "xxaeefqcvjnuugtasciq",
+  "commit": "195108ab7d0e66039954c34110014207d65e5dbe",
+  "users": [
+    {
+      "id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "clerk_id": "user_3B1EfloEIK92ggN9S8e4fU8ZTIY",
+      "email": "peewe75@gmail.com",
+      "plan": "pro",
+      "reports_used": 7,
+      "created_at": "2026-03-19T10:52:58.89779+00:00"
+    }
+  ],
+  "reports": [
+    {
+      "id": "d143a520-262f-4d25-bdcd-48a4b2418542",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "test-report.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "error",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:23:29.790076+00:00"
+    },
+    {
+      "id": "399ee76d-0be2-4fb0-9a91-4ff87d70ea10",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "size-1.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "error",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:24:50.883526+00:00"
+    },
+    {
+      "id": "12bcce20-a621-474b-861d-f7d820d09945",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "size-2.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "error",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:24:53.582452+00:00"
+    },
+    {
+      "id": "c4bbfbda-93d9-4d93-b9b2-9081c9228f53",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "size-4.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "error",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:24:56.264692+00:00"
+    },
+    {
+      "id": "116aa6b9-b85d-445f-a6cc-6b66f6dbe101",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "large-report.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "processing",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:34:56.514086+00:00"
+    },
+    {
+      "id": "bef4ebad-7ef5-4942-9053-12092307730d",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "medium-report.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "error",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:37:54.221075+00:00"
+    },
+    {
+      "id": "1265b7c7-eaf1-4841-8db8-4b2ad7511cfe",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "tiny-report.html",
+      "blob_key": "",
+      "plan": "pro",
+      "status": "error",
+      "year": 2026,
+      "net_profit": null,
+      "tax_due": null,
+      "created_at": "2026-03-19T11:38:40.28496+00:00"
+    },
+    {
+      "id": "0833689c-d393-4901-976a-ff564c3b63f1",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "atf-live-test.html",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/0833689c-d393-4901-976a-ff564c3b63f1.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2026,
+      "net_profit": 2,
+      "tax_due": 0.52,
+      "created_at": "2026-03-19T11:48:40.408504+00:00"
+    },
+    {
+      "id": "6277069a-6695-405e-ab45-2d1810608206",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "607482.htm",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/6277069a-6695-405e-ab45-2d1810608206.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2026,
+      "net_profit": 0,
+      "tax_due": 0,
+      "created_at": "2026-03-19T12:21:15.695041+00:00"
+    },
+    {
+      "id": "a9eda4f0-cdc9-4156-9642-0b144cf3509e",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "normalized-2023.html",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/a9eda4f0-cdc9-4156-9642-0b144cf3509e.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2023,
+      "net_profit": 2,
+      "tax_due": 0.52,
+      "created_at": "2026-03-19T12:32:18.297319+00:00"
+    },
+    {
+      "id": "72c19931-4f85-46fe-9d7d-f22d1ce64845",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "607482.htm",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/72c19931-4f85-46fe-9d7d-f22d1ce64845.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2023,
+      "net_profit": 2035.32,
+      "tax_due": 529.18,
+      "created_at": "2026-03-19T12:34:26.62788+00:00"
+    },
+    {
+      "id": "8b9bb1cb-21ee-467c-bd98-daefab83877e",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "607482.htm",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/8b9bb1cb-21ee-467c-bd98-daefab83877e.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2023,
+      "net_profit": 2035.32,
+      "tax_due": 529.18,
+      "created_at": "2026-03-19T12:50:30.275994+00:00"
+    },
+    {
+      "id": "187b1fb6-8dc0-4c80-b3ee-38bbc19ab8db",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "613141.htm",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/187b1fb6-8dc0-4c80-b3ee-38bbc19ab8db.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2023,
+      "net_profit": 1020.19,
+      "tax_due": 265.25,
+      "created_at": "2026-03-19T13:03:45.293658+00:00"
+    },
+    {
+      "id": "cba7f9c0-49e3-4c45-a985-001c8891901d",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "filename": "615289.htm",
+      "blob_key": "reports/720b891d-8008-4ba5-b387-17d16becaa74/cba7f9c0-49e3-4c45-a985-001c8891901d.pdf",
+      "plan": "pro",
+      "status": "ready",
+      "year": 2023,
+      "net_profit": 93.57,
+      "tax_due": 24.33,
+      "created_at": "2026-03-19T13:05:52.908486+00:00"
+    }
+  ],
+  "payments": [
+    {
+      "id": "0160e518-84ca-41b2-8c55-35ad7f87bdfb",
+      "user_id": "720b891d-8008-4ba5-b387-17d16becaa74",
+      "stripe_session_id": "test_bypass_user_3B1EfloEIK92ggN9S8e4fU8ZTIY",
+      "stripe_payment_intent_id": "test_bypass_user_3B1EfloEIK92ggN9S8e4fU8ZTIY",
+      "plan": "pro",
+      "amount_cents": 3490,
+      "status": "succeeded",
+      "created_at": "2026-03-19T11:21:14.02032+00:00"
+    }
+  ],
+  "news": []
+}

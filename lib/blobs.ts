@@ -60,3 +60,11 @@ export function buildBlobKey(userId: string, reportId: string): string {
 export function buildUploadBlobKey(userId: string, reportId: string): string {
   return `sources/${userId}/${reportId}.html`
 }
+
+export function buildTaxFormDraftKey(userId: string, reportId: string): string {
+  return `tax-forms/${userId}/${reportId}.json`
+}
+
+export function buildTaxFormPdfKey(userId: string, reportId: string): string {
+  return `tax-forms/${userId}/${reportId}.pdf`
+}
