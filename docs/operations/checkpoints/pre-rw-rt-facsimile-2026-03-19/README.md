@@ -53,6 +53,10 @@ Valori non versionati. Questo checkpoint inventaria solo i nomi richiesti.
 - `npm run build` passato
 - `npm run lint` passato
 - Deploy URL Netlify del commit `195108a` raggiungibile
+- Prova di ripristino eseguita in worktree separato sul tag `pre-rw-rt-facsimile-2026-03-19`
+  - `npm ci` passato
+  - `npm run lint` passato
+  - `npm run build` passato
 
 ## Procedura di ripristino
 
