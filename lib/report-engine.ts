@@ -59,7 +59,8 @@ interface TableState {
 const PAGE_MARGIN = 46
 const HEADER_TOP = 26
 const CONTENT_TOP = 110
-const FOOTER_BOTTOM = 30
+const FOOTER_TEXT_OFFSET = 12
+const FOOTER_RESERVED_HEIGHT = 34
 const TABLE_CELL_PADDING = 6
 const BORDER_COLOR = '#cbd5e1'
 const HEADER_BG = '#e2e8f0'
@@ -414,7 +415,7 @@ function drawPageChrome(doc: PDFKit.PDFDocument, meta: PdfMeta, pageNumber: numb
   const pageWidth = doc.page.width
   const pageHeight = doc.page.height
   const rightX = pageWidth - PAGE_MARGIN
-  const footerY = pageHeight - doc.page.margins.bottom - 12
+  const footerY = pageHeight - doc.page.margins.bottom - FOOTER_TEXT_OFFSET
 
   doc.save()
   doc.strokeColor(BORDER_COLOR).lineWidth(0.8)
@@ -542,7 +543,7 @@ function ensurePage(
   requiredHeight: number,
   afterPageAdd?: () => void
 ) {
-  const limit = doc.page.height - FOOTER_BOTTOM - 18
+  const limit = doc.page.height - doc.page.margins.bottom - FOOTER_RESERVED_HEIGHT
 
   if (state.y + requiredHeight <= limit) {
     return
