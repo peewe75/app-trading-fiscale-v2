@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { isYearAllowedForPlan, PLAN_DETAILS } from '@/lib/plans'
 import { getAppUrlFromRequest } from '@/lib/app-url'
 import { buildUploadBlobKey, saveTextBlob } from '@/lib/blobs'
+import { getReportYears, parseHtmlReport } from '@/lib/report-engine'
 import { createSupabaseServiceClient } from '@/lib/supabase'
 import { getCurrentUserRecord } from '@/lib/user-record'
 import type { Plan } from '@/types'
@@ -62,6 +63,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const htmlContent = await file.text()
+  const parsedReport = parseHtmlReport(htmlContent)
+  const availableYears = getReportYears(parsedReport.trades, parsedReport.balances)
+
+  if (availableYears.length > 0 && !availableYears.includes(year)) {
+    return NextResponse.json(
+      {
+        error: `Il file caricato non contiene movimenti per il ${year}. Anni rilevati nel report: ${availableYears.join(', ')}.`,
+      },
+      { status: 400 }
+    )
+  }
+
   const { data: report, error: reportError } = await supabase
     .from('reports')
     .insert({
@@ -78,8 +92,6 @@ export async function POST(req: NextRequest) {
   if (reportError || !report) {
     return NextResponse.json({ error: 'Errore in creazione report.' }, { status: 500 })
   }
-
-  const htmlContent = await file.text()
   const htmlBlobKey = buildUploadBlobKey(user.id, report.id)
 
   try {

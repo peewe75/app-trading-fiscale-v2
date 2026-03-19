@@ -243,6 +243,17 @@ export function calculateTax(trades: ParsedTrade[], balances: ParsedBalance[], y
   }
 }
 
+export function getReportYears(trades: ParsedTrade[], balances: ParsedBalance[]) {
+  return Array.from(
+    new Set(
+      [
+        ...trades.map(trade => trade.closeDate?.getFullYear()).filter((year): year is number => Number.isFinite(year)),
+        ...balances.map(balance => balance.date?.getFullYear()).filter((year): year is number => Number.isFinite(year)),
+      ]
+    )
+  ).sort((left, right) => right - left)
+}
+
 export async function generateReportPdf({
   results,
   trades,
