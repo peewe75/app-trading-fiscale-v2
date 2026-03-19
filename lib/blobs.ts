@@ -68,3 +68,11 @@ export function buildTaxFormDraftKey(userId: string, reportId: string): string {
 export function buildTaxFormPdfKey(userId: string, reportId: string): string {
   return `tax-forms/${userId}/${reportId}.pdf`
 }
+
+export function buildTaxFormControlPdfKey(userId: string, reportId: string): string {
+  return `tax-forms/${userId}/${reportId}.control.pdf`
+}
+
+export function buildTaxFormFacsimilePdfKey(userId: string, reportId: string): string {
+  return `tax-forms/${userId}/${reportId}.facsimile.pdf`
+}

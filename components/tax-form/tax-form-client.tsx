@@ -4,34 +4,27 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import type { TaxFormComputedSummary, TaxFormDraftInput } from '@/types'
+import type { TaxFormFieldSource, TaxFormPreview } from '@/types'
 
 type TaxFormPayload = {
-  report: {
-    id: string
-    filename: string
-    year: number
-    status: 'processing' | 'ready' | 'error'
-    created_at?: string
-  }
-  input: TaxFormDraftInput
-  summary: TaxFormComputedSummary
+  report: TaxFormPreview['report']
+  preview: TaxFormPreview
   savedAt: string | null
-  generatedPdfAvailable: boolean
-  downloadUrl?: string
+  generatedAt: string | null
   error?: string
 }
 
 type TaxFormClientProps = {
   reportId: string
-  userName: string
 }
 
-export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
+type ExtractionRow = [string, string | null, TaxFormFieldSource | undefined]
+type SummaryRow = [string, string]
+
+export function TaxFormClient({ reportId }: TaxFormClientProps) {
   const [payload, setPayload] = useState<TaxFormPayload | null>(null)
-  const [form, setForm] = useState<TaxFormDraftInput | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -53,12 +46,13 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
 
         if (!active) return
         setPayload(data)
-        setForm(data.input)
       } catch (loadError) {
         if (!active) return
         setError(loadError instanceof Error ? loadError.message : 'Errore sconosciuto.')
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 
@@ -69,79 +63,65 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
     }
   }, [reportId])
 
+  const preview = payload?.preview ?? null
+
   const summaryCards = useMemo(() => {
-    if (!payload) return []
+    if (!preview) return []
 
     return [
-      { label: 'RT23 corrispettivi', value: formatCurrency(payload.summary.rt23TotalCorrispettivi) },
-      { label: 'RT27 imponibile', value: formatCurrency(payload.summary.rt27ImponibileNetto) },
-      { label: 'Imposta teorica', value: formatCurrency(payload.summary.rtTaxDue) },
-      { label: 'IVAFE stimata', value: formatCurrency(payload.summary.rwIvafeDueEur) },
+      { label: 'Corrispettivo RT', value: formatCurrency(preview.rt_summary.rt23TotalCorrispettivi) },
+      { label: 'Costo RT', value: formatCurrency(preview.rt_summary.rt24TotalCosti) },
+      { label: 'Netto imponibile RT', value: formatCurrency(preview.rt_summary.rt27ImponibileNetto) },
+      { label: 'IVAFE stimata RW', value: formatCurrency(preview.rw_summary.rwIvafeDueEur) },
     ]
-  }, [payload])
+  }, [preview])
 
-  function updateField<K extends keyof TaxFormDraftInput>(key: K, value: TaxFormDraftInput[K]) {
-    setForm(current => (current ? { ...current, [key]: value } : current))
+  async function refreshPreview() {
+    setRefreshing(true)
     setMessage(null)
     setError(null)
-  }
-
-  function handleNumericFieldChange(key: keyof TaxFormDraftInput, value: string) {
-    const normalized = value.replace(',', '.').trim()
-    if (!normalized) {
-      updateField(key, null as TaxFormDraftInput[keyof TaxFormDraftInput])
-      return
-    }
-
-    const parsed = Number(normalized)
-    updateField(key, (Number.isFinite(parsed) ? parsed : null) as TaxFormDraftInput[keyof TaxFormDraftInput])
-  }
-
-  async function persistDraft(mode: 'save' | 'generate') {
-    if (!form) return
-
-    setError(null)
-    setMessage(null)
 
     try {
-      if (mode === 'save') {
-        setSaving(true)
-        const response = await fetch(`/api/reports/${reportId}/tax-form`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ input: form }),
-        })
-        const data = (await response.json()) as TaxFormPayload
-
-        if (!response.ok) {
-          throw new Error(data.error ?? 'Errore nel salvataggio del draft.')
-        }
-
-        setPayload(data)
-        setForm(data.input)
-        setMessage('Draft salvato in Netlify Blobs.')
-        return
-      }
-
-      setGenerating(true)
-      const response = await fetch(`/api/reports/${reportId}/tax-form/generate`, {
+      const response = await fetch(`/api/reports/${reportId}/tax-form`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: form, userName }),
       })
       const data = (await response.json()) as TaxFormPayload
 
       if (!response.ok) {
-        throw new Error(data.error ?? 'Errore nella generazione del PDF.')
+        throw new Error(data.error ?? 'Errore nel refresh dei dati RW/RT.')
       }
 
       setPayload(data)
-      setForm(data.input)
-      setMessage('Facsimile RW/RT generato correttamente.')
-    } catch (persistError) {
-      setError(persistError instanceof Error ? persistError.message : 'Errore sconosciuto.')
+      setMessage('Dati RW/RT rigenerati dal report HTML caricato.')
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : 'Errore sconosciuto.')
     } finally {
-      setSaving(false)
+      setRefreshing(false)
+    }
+  }
+
+  async function generatePdfs() {
+    setGenerating(true)
+    setMessage(null)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/reports/${reportId}/tax-form/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = (await response.json()) as TaxFormPayload
+
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Errore nella generazione del PDF RW/RT.')
+      }
+
+      setPayload(data)
+      setMessage('PDF di controllo e facsimile RW/RT generati correttamente.')
+    } catch (generationError) {
+      setError(generationError instanceof Error ? generationError.message : 'Errore sconosciuto.')
+    } finally {
       setGenerating(false)
     }
   }
@@ -154,7 +134,7 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
           <h1 className="page-title">Preparazione facsimile</h1>
         </div>
         <div className="mt-8 rounded-[28px] border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-          Caricamento del report e dei dati RW/RT in corso.
+          Analisi automatica del conto in corso.
         </div>
       </div>
     )
@@ -172,7 +152,41 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
     )
   }
 
-  if (!payload || !form) return null
+  if (!payload || !preview) return null
+
+  const extractionRows: ExtractionRow[] = [
+    ['Titolare', preview.account_extraction.ownerName, preview.field_sources.owner_name],
+    ['Codice fiscale', preview.account_extraction.taxCode, preview.field_sources.tax_code],
+    ['Account ID', preview.account_extraction.accountId, preview.field_sources.account_id],
+    ['Account label', preview.account_extraction.accountLabel, 'html' as const],
+    ['Broker', preview.account_extraction.brokerName, preview.field_sources.broker_name],
+    ['Paese broker', preview.account_extraction.brokerCountryCode, preview.field_sources.broker_country_code],
+    ['Valuta', preview.account_extraction.currency, preview.field_sources.currency],
+    ['Scala conto', preview.account_extraction.isCentAccount ? 'Conto centesimale' : 'Conto standard', 'derived' as const],
+    ['Metodo timeline', preview.account_extraction.timelineMethod, 'derived' as const],
+    ['Prima attivita', preview.account_extraction.firstActivityAt ? formatDate(preview.account_extraction.firstActivityAt) : '-', 'derived' as const],
+    ['Ultima attivita', preview.account_extraction.lastActivityAt ? formatDate(preview.account_extraction.lastActivityAt) : '-', 'derived' as const],
+  ]
+
+  const rtRows: SummaryRow[] = [
+    ['RT23 corrispettivi', formatCurrency(preview.rt_summary.rt23TotalCorrispettivi)],
+    ['RT24 costi', formatCurrency(preview.rt_summary.rt24TotalCosti)],
+    ['RT25 plusvalenze', formatCurrency(preview.rt_summary.rt25Plusvalenze)],
+    ['RT26 minusvalenze compensate', formatCurrency(preview.rt_summary.rt26MinusvalenzeCompensate)],
+    ['RT27 imponibile netto', formatCurrency(preview.rt_summary.rt27ImponibileNetto)],
+    ['Imposta teorica 26%', formatCurrency(preview.rt_summary.rtTaxDue)],
+  ]
+
+  const rwRows: SummaryRow[] = [
+    ['Codice titolare RW', preview.rw_summary.rwOwnerCode],
+    ['Codice attivita RW', preview.rw_summary.rwAssetCode],
+    ['Paese broker', preview.rw_summary.brokerCountryCode ?? '-'],
+    ['Valore iniziale RW', formatCurrency(preview.rw_summary.rwInitialValueEur)],
+    ['Valore finale RW', formatCurrency(preview.rw_summary.rwFinalValueEur)],
+    ['Valore massimo RW', formatCurrency(preview.rw_summary.rwMaxValueEur)],
+    ['Giorni possesso', String(preview.rw_summary.rwPossessionDays)],
+    ['IVAFE stimata', formatCurrency(preview.rw_summary.rwIvafeDueEur)],
+  ]
 
   return (
     <div className="space-y-6">
@@ -181,77 +195,71 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
           <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">RW / RT</span>
           <h1 className="page-title">Facsimile operativo quadro RW e RT</h1>
           <p className="page-subtitle">
-            Compila i campi mancanti del conto estero e genera un PDF di lavoro separato dal report fiscale principale.
+            Estrazione automatica dal file HTML del broker. Documento di supporto personale per semplificare il lavoro del commercialista.
           </p>
         </div>
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="grid gap-5 md:grid-cols-2">
-            <Field label="Codice fiscale">
-              <input value={form.taxCode} onChange={event => updateField('taxCode', event.target.value)} />
-            </Field>
-            <Field label="Nome broker">
-              <input value={form.brokerName} onChange={event => updateField('brokerName', event.target.value)} />
-            </Field>
-            <Field label="Paese broker">
-              <input value={form.brokerCountryCode} maxLength={2} onChange={event => updateField('brokerCountryCode', event.target.value.toUpperCase())} />
-            </Field>
-            <Field label="Codice titolare RW">
-              <input value={form.rwOwnerCode} onChange={event => updateField('rwOwnerCode', event.target.value)} />
-            </Field>
-            <Field label="Codice attivita RW">
-              <input value={form.rwAssetCode} onChange={event => updateField('rwAssetCode', event.target.value)} />
-            </Field>
-            <Field label="Giorni possesso">
-              <input
-                inputMode="numeric"
-                value={form.rwPossessionDays ?? ''}
-                onChange={event => handleNumericFieldChange('rwPossessionDays', event.target.value)}
-              />
-            </Field>
-            <Field label="Valore iniziale RW">
-              <input value={form.rwInitialValueEur ?? ''} onChange={event => handleNumericFieldChange('rwInitialValueEur', event.target.value)} />
-            </Field>
-            <Field label="Valore finale RW">
-              <input value={form.rwFinalValueEur ?? ''} onChange={event => handleNumericFieldChange('rwFinalValueEur', event.target.value)} />
-            </Field>
-            <Field label="Valore massimo RW">
-              <input value={form.rwMaxValueEur ?? ''} onChange={event => handleNumericFieldChange('rwMaxValueEur', event.target.value)} />
-            </Field>
-            <Field label="IVAFE manuale">
-              <input value={form.rwIvafeOverrideEur ?? ''} onChange={event => handleNumericFieldChange('rwIvafeOverrideEur', event.target.value)} />
-            </Field>
-            <Field label="Minusvalenze pregresse RT">
-              <input value={form.rtPriorLossesEur ?? ''} onChange={event => handleNumericFieldChange('rtPriorLossesEur', event.target.value)} />
-            </Field>
-            <Field label="Anno report">
-              <input value={String(payload.report.year)} readOnly className="bg-slate-50 text-slate-500" />
-            </Field>
-
-            <div className="md:col-span-2">
-              <Field label="Note operative">
-                <textarea
-                  rows={5}
-                  value={form.notes}
-                  onChange={event => updateField('notes', event.target.value)}
-                  placeholder="Annotazioni per controllo interno o per la trascrizione sul modello ufficiale."
-                />
-              </Field>
-            </div>
-          </div>
-
+        <div className="mt-8 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-5">
             <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Report selezionato</p>
               <p className="mt-3 text-xl font-semibold text-slate-950">{payload.report.filename}</p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                Caricato il {payload.report.created_at ? formatDate(payload.report.created_at) : '-'}.
-              </p>
-              {payload.savedAt ? (
-                <p className="mt-3 text-sm text-slate-500">Ultimo salvataggio: {formatDate(payload.savedAt)}</p>
-              ) : null}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <MetaRow label="Anno fiscale" value={String(payload.report.year)} />
+                <MetaRow label="Creato il" value={payload.report.created_at ? formatDate(payload.report.created_at) : '-'} />
+                <MetaRow label="Ultimo refresh" value={payload.savedAt ? formatDate(payload.savedAt) : '-'} />
+                <MetaRow label="Ultima generazione PDF" value={payload.generatedAt ? formatDate(payload.generatedAt) : '-'} />
+              </div>
             </div>
 
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Anteprima automatica</p>
+              <h2 className="mt-3 text-2xl font-semibold text-slate-950">Dati estratti dal conto caricato</h2>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                Un upload corrisponde a un solo conto trading e genera una sola riga RW. Nessuna aggregazione tra conti diversi dello stesso utente.
+              </p>
+
+              <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Campo</th>
+                      <th>Valore</th>
+                      <th>Origine</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extractionRows.map(([label, value, source]) => (
+                      <tr key={label}>
+                        <td className="font-medium text-slate-900">{label}</td>
+                        <td>{value && value !== '' ? value : '-'}</td>
+                        <td>{sourceLabel(source)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <SummaryPanel title="Quadro RT" rows={rtRows} />
+              <SummaryPanel title="Quadro RW" rows={rwRows} />
+            </div>
+
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Origine dati</p>
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {Object.entries(preview.field_sources).map(([field, source]) => (
+                  <div key={field} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{field}</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">{sourceLabel(source)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
               {summaryCards.map(card => (
                 <div key={card.label} className="stat-card">
@@ -261,23 +269,54 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
               ))}
             </div>
 
+            <NoticePanel
+              tone="slate"
+              title="Documento di supporto"
+              lines={preview.disclaimers}
+            />
+
+            {preview.warnings.length ? (
+              <NoticePanel
+                tone="amber"
+                title="Warning non bloccanti"
+                lines={preview.warnings.map(warning => warning.message)}
+              />
+            ) : null}
+
+            {preview.blocking_issues.length ? (
+              <NoticePanel
+                tone="rose"
+                title="Blocchi reali"
+                lines={preview.blocking_issues.map(issue => issue.message)}
+              />
+            ) : null}
+
             <div className="rounded-[28px] border border-slate-200 bg-white p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Azioni</p>
               <div className="mt-5 flex flex-wrap gap-3">
-                <Button type="button" variant="secondary" disabled={saving || generating} onClick={() => void persistDraft('save')}>
-                  {saving ? 'Salvataggio...' : 'Salva draft'}
+                <Button type="button" variant="secondary" disabled={refreshing || generating} onClick={() => void refreshPreview()}>
+                  {refreshing ? 'Aggiornamento...' : 'Rigenera dati'}
                 </Button>
-                <Button type="button" disabled={saving || generating} onClick={() => void persistDraft('generate')}>
-                  {generating ? 'Generazione...' : 'Genera PDF RW/RT'}
+                <Button
+                  type="button"
+                  disabled={refreshing || generating || !preview.can_generate_facsimile_pdf}
+                  onClick={() => void generatePdfs()}
+                >
+                  {generating ? 'Generazione...' : 'Genera PDF'}
                 </Button>
-                {payload.generatedPdfAvailable ? (
-                  <Link href={payload.downloadUrl ?? `/api/reports/${reportId}/tax-form/download`} className={buttonVariants('secondary')}>
-                    Scarica facsimile
+                {preview.internal_pdf_available ? (
+                  <Link href={preview.internal_download_url} className={buttonVariants('secondary')}>
+                    Scarica PDF di controllo
+                  </Link>
+                ) : null}
+                {preview.facsimile_pdf_available ? (
+                  <Link href={preview.facsimile_download_url} className={buttonVariants('secondary')}>
+                    Scarica facsimile RW/RT
                   </Link>
                 ) : null}
               </div>
               <p className="mt-4 text-sm leading-7 text-slate-600">
-                Il PDF RW/RT è separato dal report fiscale principale e può essere rigenerato dopo ogni modifica del draft.
+                Warning su codice fiscale o anagrafica non bloccano la generazione. Il PDF si ferma solo se il report non consente di ricostruire il conto in modo attendibile.
               </p>
             </div>
           </div>
@@ -306,11 +345,72 @@ export function TaxFormClient({ reportId, userName }: TaxFormClientProps) {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <label className="space-y-2">
-      <span className="text-sm font-semibold text-slate-900">{label}</span>
-      {children}
-    </label>
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-medium text-slate-900">{value}</p>
+    </div>
   )
+}
+
+function SummaryPanel({ title, rows }: { title: string; rows: Array<[string, string]> }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">{title}</p>
+      <div className="mt-5 space-y-3">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-sm font-medium text-slate-700">{label}</p>
+            <p className="text-sm font-semibold text-slate-950">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function NoticePanel({
+  title,
+  lines,
+  tone,
+}: {
+  title: string
+  lines: string[]
+  tone: 'slate' | 'amber' | 'rose'
+}) {
+  const styles =
+    tone === 'amber'
+      ? 'border-amber-200 bg-amber-50 text-amber-900'
+      : tone === 'rose'
+        ? 'border-rose-200 bg-rose-50 text-rose-900'
+        : 'border-slate-200 bg-slate-50 text-slate-900'
+
+  return (
+    <div className={cn('rounded-[28px] border p-6', styles)}>
+      <p className="text-xs font-semibold uppercase tracking-[0.28em]">{title}</p>
+      <div className="mt-4 space-y-2">
+        {lines.map(line => (
+          <p key={line} className="text-sm leading-7">
+            {line}
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function sourceLabel(source: TaxFormFieldSource | undefined) {
+  switch (source) {
+    case 'html':
+      return 'HTML broker'
+    case 'profile':
+      return 'Profilo utente'
+    case 'mapping':
+      return 'Mapping broker'
+    case 'derived':
+      return 'Derivato'
+    default:
+      return 'Fallback'
+  }
 }

@@ -42,22 +42,37 @@ export interface NewsItem {
   created_at: string
 }
 
-export interface TaxFormDraftInput {
-  taxCode: string
-  brokerName: string
-  brokerCountryCode: string
-  rwOwnerCode: string
-  rwAssetCode: string
-  rwPossessionDays: number | null
-  rwInitialValueEur: number | null
-  rwFinalValueEur: number | null
-  rwMaxValueEur: number | null
-  rwIvafeOverrideEur: number | null
-  rtPriorLossesEur: number | null
-  notes: string
+export type TaxFormFieldSource = 'html' | 'profile' | 'mapping' | 'derived' | 'fallback'
+
+export interface TaxFormWarning {
+  code: string
+  message: string
+  field?: string
+  source?: TaxFormFieldSource
 }
 
-export interface TaxFormComputedSummary {
+export interface TaxFormBlockingIssue {
+  code: string
+  message: string
+}
+
+export interface TaxFormAccountExtraction {
+  ownerName: string | null
+  taxCode: string | null
+  accountId: string | null
+  accountLabel: string | null
+  brokerName: string | null
+  companyName: string | null
+  brokerCountryCode: string | null
+  currency: string | null
+  isCentAccount: boolean
+  scaleFactor: number
+  timelineMethod: 'deal-balance' | 'event-rebuild' | 'unavailable'
+  firstActivityAt: string | null
+  lastActivityAt: string | null
+}
+
+export interface TaxFormRtSummary {
   year: number
   corrispettivo: number
   costo: number
@@ -67,17 +82,47 @@ export interface TaxFormComputedSummary {
   rt26MinusvalenzeCompensate: number
   rt27ImponibileNetto: number
   rtTaxDue: number
+}
+
+export interface TaxFormRwSummary {
   rwInitialValueEur: number
   rwFinalValueEur: number
   rwMaxValueEur: number
   rwPossessionDays: number
   rwIvafeDueEur: number
+  rwOwnerCode: string
+  rwAssetCode: string
+  brokerCountryCode: string | null
 }
 
-export interface TaxFormDraftRecord {
+export interface TaxFormPreview {
+  report: {
+    id: string
+    filename: string
+    year: number
+    status: 'processing' | 'ready' | 'error'
+    created_at?: string
+  }
+  account_extraction: TaxFormAccountExtraction
+  rt_summary: TaxFormRtSummary
+  rw_summary: TaxFormRwSummary
+  field_sources: Record<string, TaxFormFieldSource>
+  warnings: TaxFormWarning[]
+  blocking_issues: TaxFormBlockingIssue[]
+  disclaimers: string[]
+  can_generate_internal_pdf: boolean
+  can_generate_facsimile_pdf: boolean
+  internal_pdf_available: boolean
+  facsimile_pdf_available: boolean
+  internal_download_url: string
+  facsimile_download_url: string
+}
+
+export interface TaxFormPreviewRecord {
   reportId: string
-  input: TaxFormDraftInput
-  summary: TaxFormComputedSummary
+  preview: TaxFormPreview
   savedAt: string
-  generatedPdfBlobKey: string | null
+  generatedAt: string | null
+  internalPdfBlobKey: string | null
+  facsimilePdfBlobKey: string | null
 }

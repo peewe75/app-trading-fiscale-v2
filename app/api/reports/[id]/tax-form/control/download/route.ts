@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildTaxFormFacsimilePdfKey, getBlob } from '@/lib/blobs'
+import { buildTaxFormControlPdfKey, getBlob } from '@/lib/blobs'
 import { getAuthorizedReportForCurrentUser, ReportAccessError } from '@/lib/report-tax-context'
 
 export async function GET(
@@ -14,17 +14,17 @@ export async function GET(
       return NextResponse.json({ error: 'Il report deve essere pronto prima del download RW/RT.' }, { status: 400 })
     }
 
-    const blobKey = buildTaxFormFacsimilePdfKey(report.user_id, report.id)
+    const blobKey = buildTaxFormControlPdfKey(report.user_id, report.id)
     const pdfBuffer = await getBlob(blobKey)
 
     if (!pdfBuffer) {
-      return NextResponse.json({ error: 'Facsimile RW/RT non ancora generato.' }, { status: 404 })
+      return NextResponse.json({ error: 'PDF di controllo RW/RT non ancora generato.' }, { status: 404 })
     }
 
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="facsimile-rw-rt-${report.year}-${report.id}.pdf"`,
+        'Content-Disposition': `attachment; filename="controllo-rw-rt-${report.year}-${report.id}.pdf"`,
       },
     })
   } catch (error) {
@@ -32,6 +32,6 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
-    return NextResponse.json({ error: 'Errore interno nel download del facsimile.' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore interno nel download del PDF di controllo.' }, { status: 500 })
   }
 }

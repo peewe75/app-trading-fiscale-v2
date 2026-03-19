@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  buildTaxFormDraftKey,
-  buildTaxFormPdfKey,
-  getTextBlob,
-  saveTextBlob,
-} from '@/lib/blobs'
+import { currentUser } from '@clerk/nextjs/server'
+import { buildTaxFormDraftKey, getTextBlob, saveTextBlob } from '@/lib/blobs'
 import { getAuthorizedReportForCurrentUser, loadReportTaxContext, ReportAccessError } from '@/lib/report-tax-context'
-import {
-  computeTaxFormSummary,
-  createDefaultTaxFormInput,
-  createTaxFormDraftRecord,
-  normalizeTaxFormInput,
-  parseTaxFormDraftRecord,
-} from '@/lib/tax-form-engine'
-import type { TaxFormDraftInput } from '@/types'
+import { createTaxFormPreview, createTaxFormPreviewRecord, parseTaxFormPreviewRecord } from '@/lib/tax-form-engine'
+import { extractTaxProfileFromClerkUser } from '@/lib/tax-form-profile'
+
+type TaxFormPayload = {
+  report: {
+    id: string
+    filename: string
+    year: number
+    status: 'processing' | 'ready' | 'error'
+    created_at?: string
+  }
+  preview: ReturnType<typeof createTaxFormPreview>
+  savedAt: string | null
+  generatedAt: string | null
+}
 
 export async function GET(
   _req: NextRequest,
@@ -24,17 +27,17 @@ export async function GET(
     const report = await getAuthorizedReportForCurrentUser(id)
 
     if (report.status !== 'ready') {
-      return NextResponse.json({ error: 'Il report deve essere pronto prima di generare RW/RT.' }, { status: 400 })
+      return NextResponse.json({ error: 'Il report deve essere pronto prima di preparare RW/RT.' }, { status: 400 })
     }
 
-    const { results } = await loadReportTaxContext(report)
-    const draftKey = buildTaxFormDraftKey(report.user_id, report.id)
-    const rawDraft = await getTextBlob(draftKey)
-    const parsedDraft = parseTaxFormDraftRecord(rawDraft, report.year)
-    const input = parsedDraft?.input ?? createDefaultTaxFormInput(report.year)
-    const summary = computeTaxFormSummary(results, input)
+    const [taxContext, user, rawRecord] = await Promise.all([
+      loadReportTaxContext(report),
+      currentUser(),
+      getTextBlob(buildTaxFormDraftKey(report.user_id, report.id)),
+    ])
 
-    return NextResponse.json({
+    const parsedRecord = parseTaxFormPreviewRecord(rawRecord)
+    const preview = createTaxFormPreview({
       report: {
         id: report.id,
         filename: report.filename,
@@ -42,11 +45,21 @@ export async function GET(
         status: report.status,
         created_at: report.created_at,
       },
-      input,
-      summary,
-      savedAt: parsedDraft?.savedAt ?? null,
-      generatedPdfAvailable: Boolean(parsedDraft?.generatedPdfBlobKey),
+      sourceHtml: taxContext.sourceHtml,
+      results: taxContext.results,
+      profile: extractTaxProfileFromClerkUser(user),
+      internalPdfAvailable: Boolean(parsedRecord?.internalPdfBlobKey),
+      facsimilePdfAvailable: Boolean(parsedRecord?.facsimilePdfBlobKey),
     })
+
+    const payload: TaxFormPayload = {
+      report: preview.report,
+      preview,
+      savedAt: parsedRecord?.savedAt ?? null,
+      generatedAt: parsedRecord?.generatedAt ?? null,
+    }
+
+    return NextResponse.json(payload)
   } catch (error) {
     if (error instanceof ReportAccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
@@ -57,7 +70,7 @@ export async function GET(
 }
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -65,27 +78,18 @@ export async function POST(
     const report = await getAuthorizedReportForCurrentUser(id)
 
     if (report.status !== 'ready') {
-      return NextResponse.json({ error: 'Il report deve essere pronto prima di salvare il facsimile.' }, { status: 400 })
+      return NextResponse.json({ error: 'Il report deve essere pronto prima di rigenerare RW/RT.' }, { status: 400 })
     }
 
-    const body = (await req.json()) as { input?: Partial<TaxFormDraftInput> }
-    const { results } = await loadReportTaxContext(report)
     const draftKey = buildTaxFormDraftKey(report.user_id, report.id)
-    const rawDraft = await getTextBlob(draftKey)
-    const parsedDraft = parseTaxFormDraftRecord(rawDraft, report.year)
-    const input = normalizeTaxFormInput(body.input ?? parsedDraft?.input, report.year)
-    const summary = computeTaxFormSummary(results, input)
-    const pdfKey = parsedDraft?.generatedPdfBlobKey ?? buildTaxFormPdfKey(report.user_id, report.id)
-    const record = createTaxFormDraftRecord({
-      reportId: report.id,
-      input,
-      summary,
-      generatedPdfBlobKey: parsedDraft?.generatedPdfBlobKey ? pdfKey : null,
-    })
+    const [taxContext, user, rawRecord] = await Promise.all([
+      loadReportTaxContext(report),
+      currentUser(),
+      getTextBlob(draftKey),
+    ])
 
-    await saveTextBlob(draftKey, JSON.stringify(record, null, 2), 'application/json; charset=utf-8')
-
-    return NextResponse.json({
+    const parsedRecord = parseTaxFormPreviewRecord(rawRecord)
+    const preview = createTaxFormPreview({
       report: {
         id: report.id,
         filename: report.filename,
@@ -93,16 +97,36 @@ export async function POST(
         status: report.status,
         created_at: report.created_at,
       },
-      input: record.input,
-      summary: record.summary,
-      savedAt: record.savedAt,
-      generatedPdfAvailable: Boolean(record.generatedPdfBlobKey),
+      sourceHtml: taxContext.sourceHtml,
+      results: taxContext.results,
+      profile: extractTaxProfileFromClerkUser(user),
+      internalPdfAvailable: Boolean(parsedRecord?.internalPdfBlobKey),
+      facsimilePdfAvailable: Boolean(parsedRecord?.facsimilePdfBlobKey),
     })
+
+    const record = createTaxFormPreviewRecord({
+      reportId: report.id,
+      preview,
+      generatedAt: parsedRecord?.generatedAt ?? null,
+      internalPdfBlobKey: parsedRecord?.internalPdfBlobKey ?? null,
+      facsimilePdfBlobKey: parsedRecord?.facsimilePdfBlobKey ?? null,
+    })
+
+    await saveTextBlob(draftKey, JSON.stringify(record, null, 2), 'application/json; charset=utf-8')
+
+    const payload: TaxFormPayload = {
+      report: preview.report,
+      preview: record.preview,
+      savedAt: record.savedAt,
+      generatedAt: record.generatedAt,
+    }
+
+    return NextResponse.json(payload)
   } catch (error) {
     if (error instanceof ReportAccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
-    return NextResponse.json({ error: 'Errore interno nel salvataggio del facsimile.' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore interno nel refresh del facsimile.' }, { status: 500 })
   }
 }

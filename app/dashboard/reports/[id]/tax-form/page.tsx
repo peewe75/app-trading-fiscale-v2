@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { TaxFormClient } from '@/components/tax-form/tax-form-client'
 import { buttonVariants } from '@/components/ui/button'
@@ -11,15 +11,10 @@ export default async function ReportTaxFormPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const [{ userId }, user] = await Promise.all([auth(), currentUser()])
+  const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
   const { id } = await params
-  const userName =
-    user?.fullName?.trim() ||
-    user?.firstName?.trim() ||
-    user?.primaryEmailAddress?.emailAddress ||
-    'Utente registrato'
 
   return (
     <div className="space-y-6">
@@ -33,7 +28,7 @@ export default async function ReportTaxFormPage({
         </Link>
       </div>
 
-      <TaxFormClient reportId={id} userName={userName} />
+      <TaxFormClient reportId={id} />
     </div>
   )
 }
