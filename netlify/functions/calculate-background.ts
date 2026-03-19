@@ -65,6 +65,12 @@ const handler = async (request: Request) => {
 
     return response
   } catch (error) {
+    console.error('calculate-background failed', {
+      reportId,
+      message: error instanceof Error ? error.message : 'Errore sconosciuto',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+
     if (reportId) {
       try {
         await notifyCompletion(reportId, { status: 'error' })
