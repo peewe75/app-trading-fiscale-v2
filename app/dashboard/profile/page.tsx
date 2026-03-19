@@ -2,23 +2,19 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { ClerkProfileCard } from '@/components/profile/clerk-profile-card'
 import { PlanBadge } from '@/components/plan-badge'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { getCurrentUserRecord } from '@/lib/user-record'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Payment } from '@/types'
 
 export default async function ProfilePage() {
-  const [{ userId }, clerkUser] = await Promise.all([auth(), currentUser()])
+  const [, clerkUser] = await Promise.all([auth(), currentUser()])
+  const user = await getCurrentUserRecord()
   const supabase = await createSupabaseServerClient()
-
-  const { data: user } = await supabase
-    .from('users')
-    .select('id, email, plan, reports_used')
-    .eq('clerk_id', userId)
-    .single()
 
   const { data: payments } = await supabase
     .from('payments')
     .select('*')
-    .eq('user_id', user?.id)
+    .eq('user_id', user?.id ?? '')
     .order('created_at', { ascending: false })
 
   return (

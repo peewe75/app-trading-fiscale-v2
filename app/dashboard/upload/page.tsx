@@ -2,18 +2,13 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { UploadClient } from '@/components/upload/upload-client'
 import { getAllowedYears } from '@/lib/plans'
-import { createSupabaseServerClient } from '@/lib/supabase'
+import { getCurrentUserRecord } from '@/lib/user-record'
 
 export default async function UploadPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const supabase = await createSupabaseServerClient()
-  const { data: user } = await supabase
-    .from('users')
-    .select('plan')
-    .eq('clerk_id', userId)
-    .single()
+  const user = await getCurrentUserRecord()
 
   if (!user?.plan) redirect('/checkout')
 

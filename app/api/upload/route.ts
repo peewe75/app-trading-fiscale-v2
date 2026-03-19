@@ -3,18 +3,15 @@ import { auth } from '@clerk/nextjs/server'
 import { isYearAllowedForPlan, PLAN_DETAILS } from '@/lib/plans'
 import { getAppUrlFromRequest } from '@/lib/app-url'
 import { createSupabaseServiceClient } from '@/lib/supabase'
+import { getCurrentUserRecord } from '@/lib/user-record'
 import type { Plan } from '@/types'
 
 export async function POST(req: NextRequest) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
 
+  const user = await getCurrentUserRecord()
   const supabase = createSupabaseServiceClient()
-  const { data: user } = await supabase
-    .from('users')
-    .select('id, email, plan, reports_used')
-    .eq('clerk_id', userId)
-    .single()
 
   if (!user?.plan) {
     return NextResponse.json(

@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { ReportsTableClient } from '@/components/reports/reports-table-client'
 import { buttonVariants } from '@/components/ui/button'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { getCurrentUserRecord } from '@/lib/user-record'
 import type { Report } from '@/types'
 
 export default async function ReportsPage({
@@ -11,15 +12,16 @@ export default async function ReportsPage({
   searchParams: Promise<{ new?: string }>
 }) {
   const { userId } = await auth()
+  if (!userId) return null
+
+  const user = await getCurrentUserRecord()
   const supabase = await createSupabaseServerClient()
   const { new: highlightId } = await searchParams
-
-  const { data: user } = await supabase.from('users').select('id').eq('clerk_id', userId).single()
 
   const { data: reports } = await supabase
     .from('reports')
     .select('*')
-    .eq('user_id', user?.id)
+    .eq('user_id', user?.id ?? '')
     .order('created_at', { ascending: false })
 
   const rows = (reports ?? []) as Report[]
