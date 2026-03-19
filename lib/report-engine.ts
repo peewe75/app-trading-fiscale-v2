@@ -337,10 +337,10 @@ export async function generateReportPdf({
     title: 'Dettaglio movimenti interessi',
     emptyMessage: 'Nessun movimento interessi rilevato per l anno selezionato.',
     columns: [
-      { key: 'date', title: 'Data', width: 75 },
-      { key: 'description', title: 'Descrizione', width: 280 },
-      { key: 'kind', title: 'Tipo', width: 80, align: 'center' },
-      { key: 'amount', title: 'Importo EUR', width: 145, align: 'right' },
+      { key: 'date', title: 'Data', width: 68 },
+      { key: 'description', title: 'Descrizione', width: 240 },
+      { key: 'kind', title: 'Tipo', width: 65, align: 'center' },
+      { key: 'amount', title: 'Importo EUR', width: 130, align: 'right' },
     ],
     rows: interestRows.map((row) => ({
       date: formatShortDate(row.date),
@@ -359,15 +359,15 @@ export async function generateReportPdf({
     title: 'Dettaglio transazioni',
     emptyMessage: 'Nessuna transazione rilevata per l anno selezionato.',
     columns: [
-      { key: 'date', title: 'Data', width: 58 },
-      { key: 'symbol', title: 'Simbolo', width: 70 },
-      { key: 'type', title: 'Tipo', width: 42, align: 'center' },
-      { key: 'size', title: 'Size', width: 42, align: 'right' },
-      { key: 'open', title: 'Open', width: 66, align: 'right' },
-      { key: 'close', title: 'Close', width: 66, align: 'right' },
-      { key: 'profit', title: 'Profitto', width: 72, align: 'right' },
-      { key: 'commission', title: 'Comm.', width: 58, align: 'right' },
-      { key: 'net', title: 'Netto', width: 72, align: 'right' },
+      { key: 'date', title: 'Data', width: 52 },
+      { key: 'symbol', title: 'Simbolo', width: 58 },
+      { key: 'type', title: 'Tipo', width: 38, align: 'center' },
+      { key: 'size', title: 'Size', width: 38, align: 'right' },
+      { key: 'open', title: 'Open', width: 60, align: 'right' },
+      { key: 'close', title: 'Close', width: 60, align: 'right' },
+      { key: 'profit', title: 'Profitto', width: 63, align: 'right' },
+      { key: 'commission', title: 'Comm.', width: 50, align: 'right' },
+      { key: 'net', title: 'Netto', width: 84, align: 'right' },
     ],
     rows: tradeRows.map((trade) => ({
       date: formatShortDate(trade.closeDate),
@@ -414,11 +414,12 @@ function drawPageChrome(doc: PDFKit.PDFDocument, meta: PdfMeta, pageNumber: numb
   const pageWidth = doc.page.width
   const pageHeight = doc.page.height
   const rightX = pageWidth - PAGE_MARGIN
+  const footerY = pageHeight - doc.page.margins.bottom - 12
 
   doc.save()
   doc.strokeColor(BORDER_COLOR).lineWidth(0.8)
   doc.moveTo(PAGE_MARGIN, HEADER_TOP + 22).lineTo(pageWidth - PAGE_MARGIN, HEADER_TOP + 22).stroke()
-  doc.moveTo(PAGE_MARGIN, pageHeight - FOOTER_BOTTOM).lineTo(pageWidth - PAGE_MARGIN, pageHeight - FOOTER_BOTTOM).stroke()
+  doc.moveTo(PAGE_MARGIN, footerY - 6).lineTo(pageWidth - PAGE_MARGIN, footerY - 6).stroke()
 
   doc.fillColor(TEXT_DARK).font('Helvetica-Bold').fontSize(11).text('App Trading Fiscale', PAGE_MARGIN, HEADER_TOP)
   doc.fillColor(TEXT_MUTED)
@@ -426,13 +427,15 @@ function drawPageChrome(doc: PDFKit.PDFDocument, meta: PdfMeta, pageNumber: numb
     .fontSize(8)
     .text(`Anno ${meta.year}`, rightX - 80, HEADER_TOP, { width: 80, align: 'right' })
 
-  doc.text(`Utente: ${meta.userName}`, PAGE_MARGIN, pageHeight - FOOTER_BOTTOM + 8, { width: 220 })
-  doc.text(`Codice fiscale: ${meta.taxCode}`, PAGE_MARGIN + 220, pageHeight - FOOTER_BOTTOM + 8, {
+  doc.text(`Utente: ${meta.userName}`, PAGE_MARGIN, footerY, { width: 220, lineBreak: false })
+  doc.text(`Codice fiscale: ${meta.taxCode}`, PAGE_MARGIN + 220, footerY, {
     width: 180,
+    lineBreak: false,
   })
-  doc.text(`Pagina ${pageNumber}`, rightX - 80, pageHeight - FOOTER_BOTTOM + 8, {
+  doc.text(`Pagina ${pageNumber}`, rightX - 80, footerY, {
     width: 80,
     align: 'right',
+    lineBreak: false,
   })
   doc.restore()
 }
