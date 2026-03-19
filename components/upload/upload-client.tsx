@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -134,6 +134,7 @@ async function readJsonResponse<T>(response: Response): Promise<T & { error?: st
 }
 
 export function UploadClient({ allowedYears, plan }: UploadClientProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [year, setYear] = useState(allowedYears[0] ?? new Date().getFullYear())
   const [detectedYears, setDetectedYears] = useState<number[]>([])
@@ -241,6 +242,10 @@ export function UploadClient({ allowedYears, plan }: UploadClientProps) {
     setYearMessage(`Anni rilevati nel file: ${years.join(', ')}.`)
   }
 
+  function handleFilePickerClick() {
+    fileInputRef.current?.click()
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!file) return
@@ -326,12 +331,23 @@ export function UploadClient({ allowedYears, plan }: UploadClientProps) {
               File report broker
             </label>
             <input
+              ref={fileInputRef}
               id="file"
               type="file"
               accept=".htm,.html"
               onChange={handleFileChange}
+              className="sr-only"
               required
+              tabIndex={-1}
             />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="secondary" onClick={handleFilePickerClick}>
+                Seleziona file
+              </Button>
+              <span className="text-sm text-slate-600">
+                {file ? file.name : 'Nessun file selezionato'}
+              </span>
+            </div>
             <p className="text-sm text-slate-500">Formati ammessi: `.htm` e `.html` esportati dal broker.</p>
             {detectedYears.length ? (
               <p className="text-sm text-slate-500">Anni rilevati: {detectedYears.join(', ')}.</p>
