@@ -4,6 +4,7 @@ import { buildTaxFormDraftKey, getTextBlob, saveTextBlob } from '@/lib/blobs'
 import { getAuthorizedReportForCurrentUser, loadReportTaxContext, ReportAccessError } from '@/lib/report-tax-context'
 import { createTaxFormPreview, createTaxFormPreviewRecord, parseTaxFormPreviewRecord } from '@/lib/tax-form-engine'
 import { extractTaxProfileFromClerkUser } from '@/lib/tax-form-profile'
+import type { TaxFormManualOverrides } from '@/types'
 
 type TaxFormPayload = {
   report: {
@@ -48,6 +49,7 @@ export async function GET(
       sourceHtml: taxContext.sourceHtml,
       results: taxContext.results,
       profile: extractTaxProfileFromClerkUser(user),
+      manualOverrides: parsedRecord?.manualOverrides,
       internalPdfAvailable: Boolean(parsedRecord?.internalPdfBlobKey),
       facsimilePdfAvailable: Boolean(parsedRecord?.facsimilePdfBlobKey),
     })
@@ -70,7 +72,7 @@ export async function GET(
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -89,6 +91,8 @@ export async function POST(
     ])
 
     const parsedRecord = parseTaxFormPreviewRecord(rawRecord)
+    const body = (await req.json().catch(() => ({}))) as { manualOverrides?: TaxFormManualOverrides }
+    const manualOverrides = body.manualOverrides ?? parsedRecord?.manualOverrides
     const preview = createTaxFormPreview({
       report: {
         id: report.id,
@@ -100,6 +104,7 @@ export async function POST(
       sourceHtml: taxContext.sourceHtml,
       results: taxContext.results,
       profile: extractTaxProfileFromClerkUser(user),
+      manualOverrides,
       internalPdfAvailable: Boolean(parsedRecord?.internalPdfBlobKey),
       facsimilePdfAvailable: Boolean(parsedRecord?.facsimilePdfBlobKey),
     })
@@ -107,6 +112,7 @@ export async function POST(
     const record = createTaxFormPreviewRecord({
       reportId: report.id,
       preview,
+      manualOverrides,
       generatedAt: parsedRecord?.generatedAt ?? null,
       internalPdfBlobKey: parsedRecord?.internalPdfBlobKey ?? null,
       facsimilePdfBlobKey: parsedRecord?.facsimilePdfBlobKey ?? null,

@@ -42,7 +42,14 @@ export interface NewsItem {
   created_at: string
 }
 
-export type TaxFormFieldSource = 'html' | 'profile' | 'mapping' | 'derived' | 'fallback'
+export type TaxFormFieldSource = 'html' | 'profile' | 'mapping' | 'manual' | 'derived' | 'fallback'
+
+export interface TaxFormManualOverrides {
+  ownerName?: string | null
+  taxCode?: string | null
+  brokerName?: string | null
+  brokerCountryCode?: string | null
+}
 
 export interface TaxFormWarning {
   code: string
@@ -116,11 +123,13 @@ export interface TaxFormPreview {
   facsimile_pdf_available: boolean
   internal_download_url: string
   facsimile_download_url: string
+  manual_overrides: TaxFormManualOverrides
 }
 
 export interface TaxFormPreviewRecord {
   reportId: string
   preview: TaxFormPreview
+  manualOverrides: TaxFormManualOverrides
   savedAt: string
   generatedAt: string | null
   internalPdfBlobKey: string | null

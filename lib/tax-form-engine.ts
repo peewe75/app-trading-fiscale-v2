@@ -5,6 +5,7 @@ import type {
   TaxFormAccountExtraction,
   TaxFormBlockingIssue,
   TaxFormFieldSource,
+  TaxFormManualOverrides,
   TaxFormPreview,
   TaxFormPreviewRecord,
   TaxFormRtSummary,
@@ -22,6 +23,7 @@ type ReportPreviewInput = {
   sourceHtml: string
   results: TaxResults
   profile: TaxProfileInput
+  manualOverrides?: TaxFormManualOverrides
   internalPdfAvailable?: boolean
   facsimilePdfAvailable?: boolean
 }
@@ -94,6 +96,7 @@ const BROKER_COUNTRY_RULES: BrokerCountryRule[] = [
 ]
 
 export function createTaxFormPreview(args: ReportPreviewInput): TaxFormPreview {
+  const manualOverrides = normalizeManualOverrides(args.manualOverrides)
   const warnings: TaxFormWarning[] = []
   const blockingIssues: TaxFormBlockingIssue[] = []
   const fieldSources: Record<string, TaxFormFieldSource> = {}
@@ -107,6 +110,7 @@ export function createTaxFormPreview(args: ReportPreviewInput): TaxFormPreview {
   const ownerName = pickResolvedValue(
     [
       resolvedString(parsedContext.metadata.ownerName, 'html'),
+      resolvedString(manualOverrides.ownerName, 'manual'),
       resolvedString(args.profile.displayName, 'profile'),
       { value: 'Utente registrato', source: 'fallback' as const },
     ],
@@ -124,6 +128,7 @@ export function createTaxFormPreview(args: ReportPreviewInput): TaxFormPreview {
     [
       resolvedString(parsedContext.metadata.companyName, 'html'),
       resolvedString(deriveBrokerName(parsedContext.metadata.accountLabel), 'derived'),
+      resolvedString(manualOverrides.brokerName, 'manual'),
       { value: 'Broker non identificato', source: 'fallback' as const },
     ],
     'broker_name',
@@ -137,7 +142,11 @@ export function createTaxFormPreview(args: ReportPreviewInput): TaxFormPreview {
   )
 
   const taxCode = pickResolvedValue(
-    [resolvedString(normalizeTaxCode(args.profile.taxCode), 'profile'), { value: null, source: 'fallback' as const }],
+    [
+      resolvedString(normalizeTaxCode(manualOverrides.taxCode), 'manual'),
+      resolvedString(normalizeTaxCode(args.profile.taxCode), 'profile'),
+      { value: null, source: 'fallback' as const },
+    ],
     'tax_code',
     fieldSources
   )
@@ -158,7 +167,7 @@ export function createTaxFormPreview(args: ReportPreviewInput): TaxFormPreview {
     })
   }
 
-  const brokerCountry = resolveBrokerCountry(parsedContext.metadata, brokerName)
+  const brokerCountry = resolveBrokerCountry(parsedContext.metadata, brokerName, manualOverrides.brokerCountryCode)
   fieldSources.broker_country_code = brokerCountry.source
 
   if (!brokerCountry.value) {
@@ -244,12 +253,14 @@ export function createTaxFormPreview(args: ReportPreviewInput): TaxFormPreview {
     facsimile_pdf_available: args.facsimilePdfAvailable ?? false,
     internal_download_url: `/api/reports/${args.report.id}/tax-form/control/download`,
     facsimile_download_url: `/api/reports/${args.report.id}/tax-form/download`,
+    manual_overrides: manualOverrides,
   }
 }
 
 export function createTaxFormPreviewRecord(args: {
   reportId: string
   preview: TaxFormPreview
+  manualOverrides?: TaxFormManualOverrides
   generatedAt?: string | null
   internalPdfBlobKey?: string | null
   facsimilePdfBlobKey?: string | null
@@ -257,6 +268,7 @@ export function createTaxFormPreviewRecord(args: {
   return {
     reportId: args.reportId,
     preview: args.preview,
+    manualOverrides: normalizeManualOverrides(args.manualOverrides ?? args.preview.manual_overrides),
     savedAt: new Date().toISOString(),
     generatedAt: args.generatedAt ?? null,
     internalPdfBlobKey: args.internalPdfBlobKey ?? null,
@@ -274,6 +286,7 @@ export function parseTaxFormPreviewRecord(raw: string | null): TaxFormPreviewRec
     return {
       reportId: parsed.reportId,
       preview: parsed.preview as TaxFormPreview,
+      manualOverrides: normalizeManualOverrides(parsed.manualOverrides),
       savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString(),
       generatedAt: typeof parsed.generatedAt === 'string' ? parsed.generatedAt : null,
       internalPdfBlobKey: typeof parsed.internalPdfBlobKey === 'string' ? parsed.internalPdfBlobKey : null,
@@ -739,7 +752,19 @@ function detectScaleFactor(parsedContext: ParsedTaxFormContext) {
   }
 }
 
-function resolveBrokerCountry(metadata: BrokerMetadata, brokerName: string | null): ResolvedValue<string | null> {
+function resolveBrokerCountry(
+  metadata: BrokerMetadata,
+  brokerName: string | null,
+  manualOverride?: string | null
+): ResolvedValue<string | null> {
+  const normalizedManual = normalizeCountryCode(manualOverride)
+  if (normalizedManual) {
+    return {
+      value: normalizedManual,
+      source: 'manual',
+    }
+  }
+
   const candidates = [metadata.companyName, brokerName, metadata.accountLabel].filter(Boolean) as string[]
 
   for (const candidate of candidates) {
@@ -791,6 +816,20 @@ function pickResolvedValue<T>(
 function normalizeTaxCode(value: string | null | undefined) {
   const normalized = (value ?? '').replace(/\s+/g, '').trim().toUpperCase()
   return normalized || null
+}
+
+function normalizeCountryCode(value: string | null | undefined) {
+  const normalized = (value ?? '').replace(/\s+/g, '').trim().toUpperCase()
+  return normalized || null
+}
+
+function normalizeManualOverrides(overrides?: TaxFormManualOverrides | null): TaxFormManualOverrides {
+  return {
+    ownerName: (overrides?.ownerName ?? '').trim() || null,
+    taxCode: normalizeTaxCode(overrides?.taxCode),
+    brokerName: (overrides?.brokerName ?? '').trim() || null,
+    brokerCountryCode: normalizeCountryCode(overrides?.brokerCountryCode),
+  }
 }
 
 function looksLikeTaxCode(value: string) {
@@ -1119,6 +1158,8 @@ function sourceLabel(source: TaxFormFieldSource | undefined) {
       return 'profilo'
     case 'mapping':
       return 'mapping'
+    case 'manual':
+      return 'manuale'
     case 'derived':
       return 'derivato'
     default:

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import type { TaxFormFieldSource, TaxFormPreview } from '@/types'
+import type { TaxFormFieldSource, TaxFormManualOverrides, TaxFormPreview } from '@/types'
 
 type TaxFormPayload = {
   report: TaxFormPreview['report']
@@ -23,6 +23,7 @@ type SummaryRow = [string, string]
 
 export function TaxFormClient({ reportId }: TaxFormClientProps) {
   const [payload, setPayload] = useState<TaxFormPayload | null>(null)
+  const [manualOverrides, setManualOverrides] = useState<TaxFormManualOverrides>({})
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -46,6 +47,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
 
         if (!active) return
         setPayload(data)
+        setManualOverrides(data.preview.manual_overrides ?? {})
       } catch (loadError) {
         if (!active) return
         setError(loadError instanceof Error ? loadError.message : 'Errore sconosciuto.')
@@ -85,6 +87,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
       const response = await fetch(`/api/reports/${reportId}/tax-form`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manualOverrides }),
       })
       const data = (await response.json()) as TaxFormPayload
 
@@ -93,6 +96,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
       }
 
       setPayload(data)
+      setManualOverrides(data.preview.manual_overrides ?? {})
       setMessage('Dati RW/RT rigenerati dal report HTML caricato.')
     } catch (refreshError) {
       setError(refreshError instanceof Error ? refreshError.message : 'Errore sconosciuto.')
@@ -110,6 +114,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
       const response = await fetch(`/api/reports/${reportId}/tax-form/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manualOverrides }),
       })
       const data = (await response.json()) as TaxFormPayload
 
@@ -118,6 +123,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
       }
 
       setPayload(data)
+      setManualOverrides(data.preview.manual_overrides ?? {})
       setMessage('PDF di controllo e facsimile RW/RT generati correttamente.')
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Errore sconosciuto.')
@@ -188,6 +194,33 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
     ['IVAFE stimata', formatCurrency(preview.rw_summary.rwIvafeDueEur)],
   ]
 
+  const editableFields = [
+    {
+      key: 'ownerName' as const,
+      label: 'Intestatario manuale',
+      placeholder: 'Compila solo se il nome non e ricavabile dal report.',
+      visible: preview.field_sources.owner_name !== 'html',
+    },
+    {
+      key: 'taxCode' as const,
+      label: 'Codice fiscale manuale',
+      placeholder: 'Correggi o integra il codice fiscale se serve.',
+      visible: true,
+    },
+    {
+      key: 'brokerName' as const,
+      label: 'Nome broker manuale',
+      placeholder: 'Compila se il broker non e ricavabile in modo affidabile.',
+      visible: preview.field_sources.broker_name !== 'html',
+    },
+    {
+      key: 'brokerCountryCode' as const,
+      label: 'Paese broker manuale',
+      placeholder: 'Sigla ISO a 2 lettere, es. CY, SC, MU.',
+      visible: preview.field_sources.broker_country_code !== 'html',
+    },
+  ].filter(field => field.visible)
+
   return (
     <div className="space-y-6">
       <div className="page-panel">
@@ -257,6 +290,38 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
                 ))}
               </div>
             </div>
+
+            {editableFields.length ? (
+              <div className="rounded-[28px] border border-slate-200 bg-white p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Integrazione manuale</p>
+                <h2 className="mt-3 text-2xl font-semibold text-slate-950">Campi non ricavati con certezza</h2>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  I calcoli fiscali restano automatici. Qui puoi completare solo i dati non economici che non arrivano in modo affidabile dall HTML o dal profilo utente.
+                </p>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {editableFields.map(field => (
+                    <label key={field.key} className="space-y-2">
+                      <span className="text-sm font-semibold text-slate-900">{field.label}</span>
+                      <input
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                        value={manualOverrides[field.key] ?? ''}
+                        placeholder={field.placeholder}
+                        maxLength={field.key === 'brokerCountryCode' ? 2 : undefined}
+                        onChange={event =>
+                          setManualOverrides(current => ({
+                            ...current,
+                            [field.key]:
+                              field.key === 'brokerCountryCode'
+                                ? event.target.value.toUpperCase()
+                                : event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-5">
@@ -269,11 +334,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
               ))}
             </div>
 
-            <NoticePanel
-              tone="slate"
-              title="Documento di supporto"
-              lines={preview.disclaimers}
-            />
+            <NoticePanel tone="slate" title="Documento di supporto" lines={preview.disclaimers} />
 
             {preview.warnings.length ? (
               <NoticePanel
@@ -316,7 +377,7 @@ export function TaxFormClient({ reportId }: TaxFormClientProps) {
                 ) : null}
               </div>
               <p className="mt-4 text-sm leading-7 text-slate-600">
-                Warning su codice fiscale o anagrafica non bloccano la generazione. Il PDF si ferma solo se il report non consente di ricostruire il conto in modo attendibile.
+                Se un dato non e ricavabile automaticamente, puoi integrarlo qui sopra senza alterare i calcoli fiscali del report.
               </p>
             </div>
           </div>
@@ -408,6 +469,8 @@ function sourceLabel(source: TaxFormFieldSource | undefined) {
       return 'Profilo utente'
     case 'mapping':
       return 'Mapping broker'
+    case 'manual':
+      return 'Manuale utente'
     case 'derived':
       return 'Derivato'
     default:
