@@ -5,14 +5,12 @@ import {
   buildTaxFormDraftKey,
   buildTaxFormFacsimilePdfKey,
   getTextBlob,
-  saveBlob,
   saveTextBlob,
 } from '@/lib/blobs'
 import { getAuthorizedReportForCurrentUser, loadReportTaxContext, ReportAccessError } from '@/lib/report-tax-context'
 import {
   createTaxFormPreview,
   createTaxFormPreviewRecord,
-  generateTaxFormPdf,
   parseTaxFormPreviewRecord,
 } from '@/lib/tax-form-engine'
 import { extractTaxProfileFromClerkUser } from '@/lib/tax-form-profile'
@@ -92,17 +90,14 @@ export async function POST(
       return NextResponse.json(payload, { status: 400 })
     }
 
-    stage = 'generate-control-pdf'
-    const controlPdf = await generateTaxFormPdf({ preview: basePreview, kind: 'control' })
-    stage = 'generate-facsimile-pdf'
-    const facsimilePdf = await generateTaxFormPdf({ preview: basePreview, kind: 'facsimile' })
-
     const controlPdfBlobKey = buildTaxFormControlPdfKey(report.user_id, report.id)
     const facsimilePdfBlobKey = buildTaxFormFacsimilePdfKey(report.user_id, report.id)
-    stage = 'upload-control-pdf'
-    await saveBlob(controlPdfBlobKey, controlPdf)
-    stage = 'upload-facsimile-pdf'
-    await saveBlob(facsimilePdfBlobKey, facsimilePdf)
+    stage = 'invoke-tax-form-background'
+    await invokeTaxFormBackground(req, {
+      preview: basePreview,
+      controlPdfBlobKey,
+      facsimilePdfBlobKey,
+    })
 
     const generatedAt = new Date().toISOString()
     stage = 'refresh-preview'
@@ -160,4 +155,57 @@ export async function POST(
       { status: 500 }
     )
   }
+}
+
+async function invokeTaxFormBackground(
+  req: NextRequest,
+  payload: {
+    preview: ReturnType<typeof createTaxFormPreview>
+    controlPdfBlobKey: string
+    facsimilePdfBlobKey: string
+  }
+) {
+  const appUrl = resolveAppUrl(req)
+  if (!appUrl) {
+    throw new Error('URL applicazione non disponibile')
+  }
+
+  const response = await fetch(`${appUrl}/api/calculate-background`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      mode: 'tax-form',
+      ...payload,
+    }),
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(data?.error ?? `Tax-form background non riuscito (${response.status})`)
+  }
+}
+
+function resolveAppUrl(req: NextRequest) {
+  const candidates = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.URL,
+    process.env.DEPLOY_PRIME_URL,
+    process.env.SITE_URL,
+    req.nextUrl.origin,
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+
+    try {
+      return new URL(candidate).origin
+    } catch {
+      // Ignora valori non validi e continua con il prossimo fallback.
+    }
+  }
+
+  return null
 }

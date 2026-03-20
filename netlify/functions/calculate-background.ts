@@ -1,5 +1,6 @@
 import { calculateTax, generateReportPdf, parseHtmlReport } from '../../lib/report-engine'
 import { getTextBlob, saveBlob } from '../../lib/blobs'
+import { generateTaxFormPdf } from '../../lib/tax-form-engine'
 
 export const config = {
   path: '/api/calculate-background',
@@ -13,6 +14,10 @@ const handler = async (request: Request) => {
   try {
     stage = 'read-body'
     const body = (await request.json()) as {
+      mode?: string
+      preview?: unknown
+      controlPdfBlobKey?: string
+      facsimilePdfBlobKey?: string
       html?: string
       htmlBlobKey?: string
       year?: number
@@ -21,6 +26,36 @@ const handler = async (request: Request) => {
       userName?: string
       userEmail?: string
       taxCode?: string
+    }
+
+    if (body.mode === 'tax-form') {
+      stage = 'validate-tax-form-payload'
+      const preview = body.preview
+      const controlPdfBlobKey = body.controlPdfBlobKey ?? ''
+      const facsimilePdfBlobKey = body.facsimilePdfBlobKey ?? ''
+
+      if (!preview || !controlPdfBlobKey || !facsimilePdfBlobKey) {
+        return Response.json({ error: 'Payload tax-form incompleto' }, { status: 400 })
+      }
+
+      stage = 'generate-tax-form-control'
+      const controlPdf = await generateTaxFormPdf({ preview: preview as never, kind: 'control' })
+      stage = 'save-tax-form-control'
+      await saveBlob(controlPdfBlobKey, controlPdf)
+
+      stage = 'generate-tax-form-facsimile'
+      const facsimilePdf = await generateTaxFormPdf({ preview: preview as never, kind: 'facsimile' })
+      stage = 'save-tax-form-facsimile'
+      await saveBlob(facsimilePdfBlobKey, facsimilePdf)
+
+      return Response.json(
+        {
+          success: true,
+          controlPdfBlobKey,
+          facsimilePdfBlobKey,
+        },
+        { status: 200 }
+      )
     }
 
     stage = 'load-source'
